@@ -2,8 +2,7 @@ import type { Metadata } from "next";
 import Providers from "@/components/Providers";
 import "./globals.css";
 
-// Force dynamic rendering — wagmi/RainbowKit requires browser APIs
-export const dynamic = "force-dynamic";
+export const runtime = "edge";
 
 export const metadata: Metadata = {
   title: "Claudia AI — DeFi Without the Drama",

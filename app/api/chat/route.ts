@@ -1,5 +1,6 @@
+export const runtime = "edge";
+
 import { NextRequest, NextResponse } from "next/server";
-import Groq from "groq-sdk";
 import { verifyTokenBalance } from "@/lib/verify-token";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { getYields } from "@/lib/yields-cache";
@@ -125,7 +126,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // --- Call Groq ---
+    // --- Call Groq via fetch (edge-compatible, no Node SDK) ---
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
@@ -134,20 +135,33 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const groq = new Groq({ apiKey });
-
-    const completion = await groq.chat.completions.create({
-      model: "llama3-8b-8192",
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT + yieldContext },
-        ...sanitizedMessages,
-      ],
-      temperature: 0.7,
-      max_tokens: 1024,
+    const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "llama3-8b-8192",
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT + yieldContext },
+          ...sanitizedMessages,
+        ],
+        temperature: 0.7,
+        max_tokens: 1024,
+      }),
     });
 
+    if (!groqRes.ok) {
+      return NextResponse.json(
+        { error: "Something went wrong. Try again in a moment." },
+        { status: 502 }
+      );
+    }
+
+    const completion = await groqRes.json();
     const reply =
-      completion.choices[0]?.message?.content || "I got nothing. Try again.";
+      completion.choices?.[0]?.message?.content || "I got nothing. Try again.";
 
     return NextResponse.json({
       reply,
@@ -155,7 +169,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     console.error("Chat error:", err);
-    // Generic error — never leak internals
     return NextResponse.json(
       { error: "Something went wrong. Try again in a moment." },
       { status: 500 }

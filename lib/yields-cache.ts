@@ -1,7 +1,6 @@
 /**
- * Server-side yield data cache.
+ * Server-side yield data cache (edge-compatible).
  * Fetches from DeFiLlama and caches for 5 minutes.
- * Used by both /api/yields and /api/chat so chat never trusts client-supplied yields.
  */
 
 export interface YieldPool {
@@ -21,7 +20,7 @@ export interface YieldPool {
 
 let cachedPools: YieldPool[] = [];
 let cacheExpiry = 0;
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL = 5 * 60 * 1000;
 
 export async function getYields(): Promise<YieldPool[]> {
   if (Date.now() < cacheExpiry && cachedPools.length > 0) {
@@ -30,7 +29,7 @@ export async function getYields(): Promise<YieldPool[]> {
 
   try {
     const res = await fetch("https://yields.llama.fi/pools");
-    if (!res.ok) return cachedPools; // Return stale data on failure
+    if (!res.ok) return cachedPools;
 
     const { data } = await res.json();
 
@@ -62,7 +61,7 @@ export async function getYields(): Promise<YieldPool[]> {
 
     cacheExpiry = Date.now() + CACHE_TTL;
   } catch {
-    // Return stale or empty on error
+    // Return stale or empty
   }
 
   return cachedPools;
