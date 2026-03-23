@@ -83,91 +83,90 @@ h1, h2, h3, h4, h5, h6 {
 
 /* ===== CLAUDIA CHARACTER ANIMATION SYSTEM ===== */
 
-/* Idle — subtle breathing + float */
-@keyframes claudia-breathe {
-  0%, 100% { transform: scaleY(1); }
-  50% { transform: scaleY(1.02); }
-}
-@keyframes claudia-float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-4px); }
+/* Idle — combined breathing + float in one keyframe so transforms compose */
+@keyframes claudia-idle {
+  0%   { transform: translateY(0) scale(1); }
+  25%  { transform: translateY(-3px) scale(1.01); }
+  50%  { transform: translateY(-6px) scale(1.02); }
+  75%  { transform: translateY(-3px) scale(1.01); }
+  100% { transform: translateY(0) scale(1); }
 }
 
 /* Impatient — nail-tapping micro-shakes + tilt */
 @keyframes claudia-impatient {
-  0% { transform: translateX(0) rotate(0deg); }
-  25% { transform: translateX(-2px) rotate(-1deg); }
-  50% { transform: translateX(2px) rotate(1deg); }
-  75% { transform: translateX(-2px) rotate(-1deg); }
+  0%   { transform: translateX(0) rotate(0deg); }
+  20%  { transform: translateX(-3px) rotate(-1.5deg); }
+  40%  { transform: translateX(3px) rotate(1.5deg); }
+  60%  { transform: translateX(-2px) rotate(-1deg); }
+  80%  { transform: translateX(2px) rotate(1deg); }
   100% { transform: translateX(0) rotate(0deg); }
 }
 
 /* Thinking — slow head-bob + scale pulse */
 @keyframes claudia-thinking {
   0%, 100% { transform: rotate(0deg) scale(1); }
-  25% { transform: rotate(-2deg) scale(1.01); }
-  75% { transform: rotate(2deg) scale(1.01); }
+  25%  { transform: rotate(-3deg) scale(1.02); }
+  75%  { transform: rotate(3deg) scale(1.02); }
 }
 
 /* Excited — spring bounce (one-shot, 3 iterations) */
 @keyframes claudia-excited {
-  0% { transform: translateY(0) scale(1); }
-  15% { transform: translateY(-12px) scale(1.05); }
-  30% { transform: translateY(-2px) scale(1.01); }
-  45% { transform: translateY(-8px) scale(1.03); }
-  60% { transform: translateY(-1px) scale(1); }
-  75% { transform: translateY(-4px) scale(1.02); }
+  0%   { transform: translateY(0) scale(1); }
+  15%  { transform: translateY(-14px) scale(1.06); }
+  30%  { transform: translateY(-2px) scale(1.01); }
+  45%  { transform: translateY(-10px) scale(1.04); }
+  60%  { transform: translateY(-1px) scale(1); }
+  75%  { transform: translateY(-5px) scale(1.02); }
   100% { transform: translateY(0) scale(1); }
 }
 
 /* Skeptical — slow side-to-side lean + drift */
 @keyframes claudia-skeptical {
   0%, 100% { transform: rotate(0deg) translateX(0); }
-  50% { transform: rotate(-4deg) translateX(-3px); }
+  50%  { transform: rotate(-5deg) translateX(-4px); }
 }
 
-/* Talking — subtle rapid scale pulses */
+/* Talking — bounce in rhythm with text */
 @keyframes claudia-talking {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.015); }
+  0%, 100% { transform: scale(1) translateY(0); }
+  50%  { transform: scale(1.02) translateY(-2px); }
 }
 
 /* Glow pulse for excited/talking states */
 @keyframes claudia-glow-pulse {
   0%, 100% { filter: drop-shadow(0 0 8px rgba(232, 41, 91, 0.3)); }
-  50% { filter: drop-shadow(0 0 16px rgba(232, 41, 91, 0.6)); }
+  50%  { filter: drop-shadow(0 0 18px rgba(232, 41, 91, 0.6)); }
 }
 
 /* Text bubble word reveal */
 @keyframes claudia-word-in {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 /* Text bubble fade out */
 @keyframes claudia-text-fade {
   from { opacity: 1; }
-  to { opacity: 0; }
+  to   { opacity: 0; }
 }
 
 .claudia-character {
   will-change: transform;
 }
 
-/* Idle: layered breathe + float */
+/* Idle: gentle float + breathe combined */
 .claudia-mood-idle {
-  animation: claudia-breathe 4s ease-in-out infinite,
-             claudia-float 6s ease-in-out infinite;
+  animation: claudia-idle 5s ease-in-out infinite;
 }
 
 /* Impatient: rapid shake loop */
 .claudia-mood-impatient {
-  animation: claudia-impatient 0.3s ease-in-out infinite;
+  animation: claudia-impatient 0.35s ease-in-out infinite;
 }
 
 /* Thinking: slow bob, slight desaturation */
 .claudia-mood-thinking {
-  animation: claudia-thinking 2s ease-in-out infinite;
+  animation: claudia-thinking 2.5s ease-in-out infinite;
   filter: saturate(0.8);
   opacity: 0.9;
 }
@@ -197,7 +196,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Word-by-word reveal */
 .claudia-word {
-  display: inline-block;
+  display: inline;
   opacity: 0;
   animation: claudia-word-in 0.15s ease-out forwards;
 }
