@@ -1,7 +1,7 @@
 name = "claudia-ai"
 pages_build_output_dir = ".vercel/output/static"
 compatibility_date = "2024-07-01"
-compatibility_flags = ["nodejs_compat"]
+compatibility_flags = ["nodejs_compat", "nodejs_compat_populate_process_env"]
 
 [vars]
 NEXT_PUBLIC_CLAUDIA_CONTRACT = "0x98eBd4Ac5d4f7022140c51e03CAc39d9F94CDE9B"
