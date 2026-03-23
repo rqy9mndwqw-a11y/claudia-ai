@@ -94,14 +94,14 @@ export async function POST(req: NextRequest) {
 
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
-      return NextResponse.json({ error: "NO_API_KEY", hasEnv: !!process.env, keyLength: 0 }, { status: 503 });
+      return NextResponse.json({ error: "Service temporarily unavailable" }, { status: 503 });
     }
 
     const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "llama3-8b-8192",
+        model: "llama-3.3-70b-versatile",
         messages: [{ role: "system", content: SYSTEM_PROMPT + yieldContext }, ...sanitizedMessages],
         temperature: 0.7,
         max_tokens: 1024,
@@ -109,8 +109,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (!groqRes.ok) {
-      const errBody = await groqRes.text();
-      return NextResponse.json({ error: "GROQ_FAILED", status: groqRes.status, body: errBody.slice(0, 200), keyPrefix: apiKey.slice(0, 8) }, { status: 502 });
+      return NextResponse.json({ error: "Something went wrong. Try again in a moment." }, { status: 502 });
     }
 
     const completion = await groqRes.json();
