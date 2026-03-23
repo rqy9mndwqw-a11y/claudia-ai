@@ -44,9 +44,13 @@ export default function TokenGate({
     ],
     query: {
       enabled: isConnected && !!address,
-      refetchInterval: 30_000,
-      retry: 3,
-      retryDelay: 1000,
+      refetchInterval: 15_000,
+      retry: 5,
+      retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
+      gcTime: 0,
+      staleTime: 0,
+      refetchOnMount: "always",
+      refetchOnWindowFocus: true,
     },
   });
 

@@ -5,11 +5,13 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import WalletConnect from "@/components/WalletConnect";
 import TokenGate from "@/components/TokenGate";
-import ChatInterface from "@/components/ChatInterface";
+import PoolDashboard from "@/components/PoolDashboard";
+import { usePools } from "@/hooks/usePools";
 
-export default function ChatPage() {
+export default function DefiPage() {
   const { isConnected } = useAccount();
   const router = useRouter();
+  const poolsState = usePools();
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -28,10 +30,10 @@ export default function ChatPage() {
             Claudia <span className="text-accent">AI</span>
           </span>
           <nav className="hidden md:flex gap-1">
-            <a href="/chat" className="text-white text-xs px-3 py-1.5 rounded-lg bg-surface-light transition-colors">
+            <a href="/chat" className="text-zinc-500 hover:text-white text-xs px-3 py-1.5 rounded-lg transition-colors">
               Chat
             </a>
-            <a href="/defi" className="text-zinc-500 hover:text-white text-xs px-3 py-1.5 rounded-lg transition-colors">
+            <a href="/defi" className="text-white text-xs px-3 py-1.5 rounded-lg bg-surface-light transition-colors">
               DeFi
             </a>
             <a href="/trade" className="text-zinc-500 hover:text-white text-xs px-3 py-1.5 rounded-lg transition-colors">
@@ -41,8 +43,8 @@ export default function ChatPage() {
         </div>
         <WalletConnect />
       </header>
-      <TokenGate>
-        <ChatInterface />
+      <TokenGate featureName="DeFi Dashboard">
+        <PoolDashboard poolsState={poolsState} />
       </TokenGate>
     </main>
   );
