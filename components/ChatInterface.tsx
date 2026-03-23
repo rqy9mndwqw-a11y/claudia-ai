@@ -5,6 +5,7 @@ import { useAccount } from "wagmi";
 import ReactMarkdown from "react-markdown";
 import rehypeSanitize from "rehype-sanitize";
 import YieldCard from "./YieldCard";
+import ClaudiaAvatar from "./ClaudiaAvatar";
 
 interface Message {
   role: "user" | "assistant";
@@ -170,6 +171,11 @@ export default function ChatInterface() {
       </div>
 
       <div className="flex flex-1 overflow-hidden">
+        {/* Claudia avatar — left panel on desktop */}
+        <div className="hidden md:flex flex-col items-center justify-start w-48 border-r border-white/5 bg-surface/30 pt-6">
+          <ClaudiaAvatar state={loading ? "thinking" : messages.length > 0 && messages[messages.length - 1]?.role === "assistant" ? "responding" : "idle"} />
+        </div>
+
         {/* Chat area */}
         <div className="flex-1 flex flex-col">
           {/* Messages */}
