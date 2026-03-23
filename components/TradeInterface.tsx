@@ -43,6 +43,8 @@ export default function TradeInterface() {
   const [execSymbol, setExecSymbol] = useState("");
   const [execSide, setExecSide] = useState<"buy" | "sell">("buy");
   const [execAmount, setExecAmount] = useState("");
+  const [execStopLoss, setExecStopLoss] = useState("");
+  const [execTakeProfit, setExecTakeProfit] = useState("");
   const [execResult, setExecResult] = useState<{ success: boolean; message: string } | null>(null);
   const [executing, setExecuting] = useState(false);
 
@@ -160,6 +162,9 @@ export default function TradeInterface() {
     setAvatarState("thinking");
 
     try {
+      const sl = execStopLoss ? parseFloat(execStopLoss) : undefined;
+      const tp = execTakeProfit ? parseFloat(execTakeProfit) : undefined;
+
       const res = await fetch("/api/trade/execute", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -171,12 +176,17 @@ export default function TradeInterface() {
           side: execSide,
           amount: parseFloat(execAmount),
           orderType: "market",
+          stopLoss: sl,
+          takeProfit: tp,
         }),
       });
 
       const data = await res.json();
       if (data.success) {
-        setExecResult({ success: true, message: `Order placed: ${data.description} (ID: ${data.orderId})` });
+        let msg = `Order placed: ${data.description}`;
+        if (data.closeDescription) msg += `\n${data.closeDescription}`;
+        msg += ` (ID: ${data.orderId})`;
+        setExecResult({ success: true, message: msg });
         setAvatarState("smug");
       } else {
         setExecResult({ success: false, message: data.error || "Trade failed" });
@@ -418,6 +428,7 @@ export default function TradeInterface() {
                 </div>
 
                 <div className="space-y-3">
+                  {/* Row 1: Coin, Side, Amount */}
                   <div className="grid grid-cols-3 gap-3">
                     <div>
                       <label className="text-zinc-600 text-[10px] uppercase tracking-widest block mb-1">Coin</label>
@@ -482,16 +493,78 @@ export default function TradeInterface() {
                     </div>
                   </div>
 
+                  {/* Row 2: Stop Loss + Take Profit (optional) */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-zinc-600 text-[10px] uppercase tracking-widest block mb-1">
+                        Stop Loss
+                        <span className="text-zinc-700 normal-case ml-1">(optional)</span>
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600 text-sm">$</span>
+                        <input
+                          type="number"
+                          value={execStopLoss}
+                          onChange={(e) => setExecStopLoss(e.target.value)}
+                          placeholder="0.00"
+                          step="any"
+                          className="w-full bg-surface border border-white/10 rounded-lg pl-7 pr-3 py-2.5
+                                     text-red-400 text-sm font-mono outline-none focus:border-red-500/30"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-zinc-600 text-[10px] uppercase tracking-widest block mb-1">
+                        Take Profit
+                        <span className="text-zinc-700 normal-case ml-1">(optional)</span>
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600 text-sm">$</span>
+                        <input
+                          type="number"
+                          value={execTakeProfit}
+                          onChange={(e) => setExecTakeProfit(e.target.value)}
+                          placeholder="0.00"
+                          step="any"
+                          className="w-full bg-surface border border-white/10 rounded-lg pl-7 pr-3 py-2.5
+                                     text-green-400 text-sm font-mono outline-none focus:border-green-500/30"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Claudia's suggested levels hint */}
+                  {execSymbol && analysis && (
+                    <p className="text-zinc-600 text-[10px] italic">
+                      Check Claudia&apos;s signal above for suggested stop and target levels on {execSymbol}.
+                    </p>
+                  )}
+
                   {/* Order preview */}
                   {execSymbol && execAmount && (
-                    <div className="bg-surface rounded-lg px-4 py-2 text-xs text-zinc-400 flex items-center justify-between">
-                      <span>
-                        Market {execSide.toUpperCase()} ~${parseFloat(execAmount || "0").toLocaleString()} of {execSymbol}
-                      </span>
-                      {signalData.find((d) => d.symbol === execSymbol) && (
-                        <span className="text-zinc-600">
-                          ≈ {(parseFloat(execAmount || "0") / (signalData.find((d) => d.symbol === execSymbol)?.price || 1)).toFixed(6)} {execSymbol}
-                        </span>
+                    <div className="bg-surface rounded-lg px-4 py-3 text-xs space-y-1">
+                      <div className="flex items-center justify-between text-zinc-400">
+                        <span>Market {execSide.toUpperCase()} ~${parseFloat(execAmount || "0").toLocaleString()} of {execSymbol}</span>
+                        {signalData.find((d) => d.symbol === execSymbol) && (
+                          <span className="text-zinc-600">
+                            ≈ {(parseFloat(execAmount || "0") / (signalData.find((d) => d.symbol === execSymbol)?.price || 1)).toFixed(6)} {execSymbol}
+                          </span>
+                        )}
+                      </div>
+                      {(execStopLoss || execTakeProfit) && (
+                        <div className="flex items-center gap-4 text-[10px]">
+                          {execStopLoss && (
+                            <span className="text-red-400">SL: ${parseFloat(execStopLoss).toLocaleString()}</span>
+                          )}
+                          {execTakeProfit && (
+                            <span className="text-green-400">TP: ${parseFloat(execTakeProfit).toLocaleString()}</span>
+                          )}
+                          {execStopLoss && execTakeProfit && signalData.find((d) => d.symbol === execSymbol) && (
+                            <span className="text-zinc-600">
+                              R:R {((parseFloat(execTakeProfit) - (signalData.find((d) => d.symbol === execSymbol)?.price || 0)) / ((signalData.find((d) => d.symbol === execSymbol)?.price || 0) - parseFloat(execStopLoss))).toFixed(1)}
+                            </span>
+                          )}
+                        </div>
                       )}
                     </div>
                   )}
@@ -508,12 +581,12 @@ export default function TradeInterface() {
                     {executing
                       ? "Placing Order..."
                       : execSymbol
-                      ? `${execSide.toUpperCase()} ${execSymbol}`
+                      ? `${execSide.toUpperCase()} ${execSymbol}${execStopLoss || execTakeProfit ? " + SL/TP" : ""}`
                       : "Select a coin above"}
                   </button>
 
                   {execResult && (
-                    <div className={`rounded-lg px-4 py-3 text-sm ${
+                    <div className={`rounded-lg px-4 py-3 text-sm whitespace-pre-line ${
                       execResult.success
                         ? "bg-green-900/20 text-green-400 border border-green-800/30"
                         : "bg-red-900/20 text-red-400 border border-red-800/30"

@@ -67,8 +67,11 @@ export default function TokenGate({
             </span>{" "}
             to access {featureName}.
           </p>
-          <p className="text-zinc-500 text-sm mb-6">
+          <p className="text-zinc-500 text-sm mb-2">
             Your balance: {humanBalance.toLocaleString()} $CLAUDIA
+          </p>
+          <p className="text-zinc-600 text-xs mb-6">
+            You need {Math.max(0, Math.ceil(minBalance - humanBalance)).toLocaleString()} more
           </p>
           <a
             href={`https://aerodrome.finance/swap?from=0x4200000000000000000000000000000000000006&to=${CLAUDIA_CONTRACT}`}

@@ -109,7 +109,7 @@ export async function fetchTicker(
   };
 }
 
-/** Place an order on Kraken (requires API key + secret) */
+/** Place an order on Kraken with optional stop-loss and take-profit */
 export async function placeOrder(
   apiKey: string,
   apiSecret: string,
@@ -117,10 +117,12 @@ export async function placeOrder(
     symbol: string;
     side: "buy" | "sell";
     amount: number;
-    price?: number; // omit for market order
+    price?: number;
     orderType?: "market" | "limit";
+    stopLoss?: number;
+    takeProfit?: number;
   }
-): Promise<{ orderId: string; description: string }> {
+): Promise<{ orderId: string; description: string; closeDescription?: string }> {
   const nonce = Date.now() * 1000;
   const pair = getKrakenPair(params.symbol);
   const type = params.orderType || "market";
@@ -135,6 +137,21 @@ export async function placeOrder(
 
   if (type === "limit" && params.price) {
     body.price = String(params.price);
+  }
+
+  // Kraken conditional close: attach stop-loss to the entry order
+  // close[ordertype] = stop-loss-limit or take-profit-limit
+  if (params.stopLoss && params.takeProfit) {
+    // Use stop-loss with take-profit: Kraken supports this via close params
+    // Primary close is stop-loss, we'll place TP as separate order
+    body["close[ordertype]"] = "stop-loss";
+    body["close[price]"] = String(params.stopLoss);
+  } else if (params.stopLoss) {
+    body["close[ordertype]"] = "stop-loss";
+    body["close[price]"] = String(params.stopLoss);
+  } else if (params.takeProfit) {
+    body["close[ordertype]"] = "take-profit";
+    body["close[price]"] = String(params.takeProfit);
   }
 
   const postData = new URLSearchParams(body).toString();
@@ -157,10 +174,46 @@ export async function placeOrder(
     throw new Error(data.error.join(", "));
   }
 
-  return {
+  const result: { orderId: string; description: string; closeDescription?: string } = {
     orderId: data.result.txid?.[0] || "unknown",
     description: data.result.descr?.order || "Order placed",
+    closeDescription: data.result.descr?.close || undefined,
   };
+
+  // If both SL and TP, place TP as a separate conditional order
+  if (params.stopLoss && params.takeProfit) {
+    try {
+      const tpNonce = Date.now() * 1000 + 1;
+      const closeSide = params.side === "buy" ? "sell" : "buy";
+      const tpBody: Record<string, string> = {
+        nonce: String(tpNonce),
+        ordertype: "take-profit",
+        type: closeSide,
+        volume: String(params.amount),
+        pair,
+        price: String(params.takeProfit),
+      };
+      const tpPostData = new URLSearchParams(tpBody).toString();
+      const tpSignature = signRequest(path, tpNonce, tpPostData, apiSecret);
+
+      await fetch(`${KRAKEN_API}${path}`, {
+        method: "POST",
+        headers: {
+          "API-Key": apiKey,
+          "API-Sign": tpSignature,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: tpPostData,
+      });
+
+      result.closeDescription = `SL: $${params.stopLoss} | TP: $${params.takeProfit}`;
+    } catch {
+      // TP failed but main order + SL went through
+      result.closeDescription = `SL: $${params.stopLoss} (TP order failed — place manually)`;
+    }
+  }
+
+  return result;
 }
 
 /** Verify API key works by checking balance */

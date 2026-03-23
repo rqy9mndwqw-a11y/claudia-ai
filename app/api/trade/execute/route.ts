@@ -6,14 +6,13 @@ import { checkRateLimit } from "@/lib/rate-limit";
 export async function POST(req: NextRequest) {
   try {
     const ip = req.headers.get("cf-connecting-ip") || "unknown";
-    const rl = checkRateLimit(`exec:${ip}`, 10, 60_000); // 10 trades per minute max
+    const rl = checkRateLimit(`exec:${ip}`, 10, 60_000);
     if (!rl.allowed) {
       return NextResponse.json({ error: "Too many trades. Slow down." }, { status: 429 });
     }
 
-    const { address, apiKey, apiSecret, symbol, side, amount, price, orderType } = await req.json();
+    const { address, apiKey, apiSecret, symbol, side, amount, price, orderType, stopLoss, takeProfit } = await req.json();
 
-    // Validate inputs
     if (!address || typeof address !== "string") {
       return NextResponse.json({ error: "Wallet address required" }, { status: 400 });
     }
@@ -29,6 +28,12 @@ export async function POST(req: NextRequest) {
     if (typeof amount !== "number" || amount <= 0) {
       return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
     }
+    if (stopLoss && (typeof stopLoss !== "number" || stopLoss <= 0)) {
+      return NextResponse.json({ error: "Invalid stop-loss price" }, { status: 400 });
+    }
+    if (takeProfit && (typeof takeProfit !== "number" || takeProfit <= 0)) {
+      return NextResponse.json({ error: "Invalid take-profit price" }, { status: 400 });
+    }
 
     // Token gate
     try {
@@ -40,23 +45,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unable to verify token balance." }, { status: 503 });
     }
 
-    // Execute the trade
     const result = await placeOrder(apiKey, apiSecret, {
       symbol: symbol.toUpperCase(),
       side,
       amount,
       price,
       orderType: orderType || "market",
+      stopLoss: stopLoss || undefined,
+      takeProfit: takeProfit || undefined,
     });
 
     return NextResponse.json({
       success: true,
       orderId: result.orderId,
       description: result.description,
+      closeDescription: result.closeDescription,
     });
   } catch (err) {
     const msg = (err as Error).message;
-    // Return Kraken errors to user (they're about their order, not our internals)
     if (msg.includes("EOrder") || msg.includes("EGeneral") || msg.includes("EAPI")) {
       return NextResponse.json({ error: msg }, { status: 400 });
     }
