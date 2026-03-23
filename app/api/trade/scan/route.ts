@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchOHLCV, fetchTicker, SUPPORTED_PAIRS } from "@/lib/kraken";
+import { fetchOHLCV, fetchTicker, type ExchangeId } from "@/lib/exchange";
+import { SUPPORTED_PAIRS } from "@/lib/kraken-pairs";
 import { verifyTokenBalance } from "@/lib/verify-token";
 import { checkRateLimit } from "@/lib/rate-limit";
 
@@ -80,7 +81,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Too many scans. Wait a minute." }, { status: 429 });
     }
 
-    const { watchlist, address } = await req.json();
+    const { watchlist, address, exchange } = await req.json();
+    const exchangeId: ExchangeId = exchange || "kraken";
 
     if (!address || typeof address !== "string") {
       return NextResponse.json({ error: "Wallet address required" }, { status: 400 });
@@ -113,8 +115,8 @@ export async function POST(req: NextRequest) {
     const results = await Promise.allSettled(
       symbols.map(async (symbol: string) => {
         const [ohlcv, ticker] = await Promise.all([
-          fetchOHLCV(symbol, 60),
-          fetchTicker(symbol),
+          fetchOHLCV(exchangeId, symbol, "1h"),
+          fetchTicker(exchangeId, symbol),
         ]);
         const indicators = computeIndicators(ohlcv.close);
         return { symbol, ticker, indicators };

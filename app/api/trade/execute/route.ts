@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { placeOrder } from "@/lib/kraken";
+import { placeOrder, type ExchangeId } from "@/lib/exchange";
 import { verifyTokenBalance } from "@/lib/verify-token";
 import { checkRateLimit } from "@/lib/rate-limit";
 
@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Too many trades. Slow down." }, { status: 429 });
     }
 
-    const { address, apiKey, apiSecret, symbol, side, amount, price, orderType, stopLoss, takeProfit } = await req.json();
+    const { address, apiKey, apiSecret, exchange, symbol, side, amount, price, orderType, stopLoss, takeProfit } = await req.json();
 
     if (!address || typeof address !== "string") {
       return NextResponse.json({ error: "Wallet address required" }, { status: 400 });
@@ -28,14 +28,7 @@ export async function POST(req: NextRequest) {
     if (typeof amount !== "number" || amount <= 0) {
       return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
     }
-    if (stopLoss && (typeof stopLoss !== "number" || stopLoss <= 0)) {
-      return NextResponse.json({ error: "Invalid stop-loss price" }, { status: 400 });
-    }
-    if (takeProfit && (typeof takeProfit !== "number" || takeProfit <= 0)) {
-      return NextResponse.json({ error: "Invalid take-profit price" }, { status: 400 });
-    }
 
-    // Token gate
     try {
       const { authorized } = await verifyTokenBalance(address, 100_000);
       if (!authorized) {
@@ -45,7 +38,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unable to verify token balance." }, { status: 503 });
     }
 
-    const result = await placeOrder(apiKey, apiSecret, {
+    const exchangeId: ExchangeId = exchange || "kraken";
+
+    const result = await placeOrder(exchangeId, apiKey, apiSecret, {
       symbol: symbol.toUpperCase(),
       side,
       amount,
@@ -63,7 +58,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     const msg = (err as Error).message;
-    if (msg.includes("EOrder") || msg.includes("EGeneral") || msg.includes("EAPI")) {
+    if (msg.includes("EOrder") || msg.includes("EGeneral") || msg.includes("EAPI") || msg.includes("Invalid")) {
       return NextResponse.json({ error: msg }, { status: 400 });
     }
     console.error("Execute error:", msg);

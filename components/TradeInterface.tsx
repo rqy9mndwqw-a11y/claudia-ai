@@ -23,7 +23,8 @@ export default function TradeInterface() {
   const [step, setStep] = useState<Step>("setup");
   const [avatarState, setAvatarState] = useState<AvatarState>("idle");
 
-  // API key state
+  // Exchange + API key state
+  const [exchange, setExchange] = useState<"kraken" | "coinbase">("kraken");
   const [apiKey, setApiKey] = useState("");
   const [apiSecret, setApiSecret] = useState("");
   const [keyVerified, setKeyVerified] = useState(false);
@@ -48,7 +49,7 @@ export default function TradeInterface() {
   const [execResult, setExecResult] = useState<{ success: boolean; message: string } | null>(null);
   const [executing, setExecuting] = useState(false);
 
-  // Load saved keys from localStorage (encrypted with simple obfuscation)
+  // Load saved keys from localStorage
   useEffect(() => {
     if (address) {
       const saved = localStorage.getItem(`claudia_keys_${address.slice(0, 10)}`);
@@ -57,6 +58,7 @@ export default function TradeInterface() {
           const parsed = JSON.parse(atob(saved));
           setApiKey(parsed.k || "");
           setApiSecret(parsed.s || "");
+          setExchange(parsed.e || "kraken");
           setKeyVerified(true);
           setStep("watchlist");
         } catch { /* corrupt data, ignore */ }
@@ -66,7 +68,7 @@ export default function TradeInterface() {
 
   const saveKeys = () => {
     if (address) {
-      const encoded = btoa(JSON.stringify({ k: apiKey, s: apiSecret }));
+      const encoded = btoa(JSON.stringify({ k: apiKey, s: apiSecret, e: exchange }));
       localStorage.setItem(`claudia_keys_${address.slice(0, 10)}`, encoded);
     }
   };
@@ -91,7 +93,7 @@ export default function TradeInterface() {
       const res = await fetch("/api/trade/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiKey, apiSecret }),
+        body: JSON.stringify({ apiKey, apiSecret, exchange }),
       });
       const data = await res.json();
 
@@ -133,7 +135,7 @@ export default function TradeInterface() {
       const res = await fetch("/api/trade/scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ watchlist, address }),
+        body: JSON.stringify({ watchlist, address, exchange }),
       });
 
       const data = await res.json();
@@ -172,6 +174,7 @@ export default function TradeInterface() {
           address,
           apiKey,
           apiSecret,
+          exchange,
           symbol: execSymbol,
           side: execSide,
           amount: parseFloat(execAmount),
@@ -218,11 +221,31 @@ export default function TradeInterface() {
                 Connect Your Exchange
               </h2>
               <p className="text-zinc-500 text-sm mb-6">
-                Kraken API keys only. Create one with <span className="text-white">Trade + Query</span> permissions.{" "}
+                Create an API key with <span className="text-white">Trade + Query</span> permissions.{" "}
                 <span className="text-accent">Never enable withdrawals.</span>
               </p>
 
               <div className="space-y-4">
+                {/* Exchange picker */}
+                <div>
+                  <label className="text-zinc-500 text-xs uppercase tracking-widest mb-2 block">Exchange</label>
+                  <div className="flex gap-2">
+                    {(["kraken", "coinbase"] as const).map((ex) => (
+                      <button
+                        key={ex}
+                        onClick={() => setExchange(ex)}
+                        className={`flex-1 py-3 rounded-lg text-sm font-bold transition-all ${
+                          exchange === ex
+                            ? "bg-accent/20 text-white border border-accent"
+                            : "bg-surface text-zinc-500 border border-white/5 hover:border-accent/30 hover:text-white"
+                        }`}
+                      >
+                        {ex === "kraken" ? "Kraken" : "Coinbase"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div>
                   <label className="text-zinc-500 text-xs uppercase tracking-widest mb-1 block">API Key</label>
                   <input

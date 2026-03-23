@@ -1,22 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyApiKey } from "@/lib/kraken";
+import { verifyExchangeKey, type ExchangeId } from "@/lib/exchange";
 
 export async function POST(req: NextRequest) {
   try {
-    const { apiKey, apiSecret } = await req.json();
+    const { apiKey, apiSecret, exchange } = await req.json();
 
     if (!apiKey || !apiSecret) {
       return NextResponse.json({ error: "API key and secret required" }, { status: 400 });
     }
 
-    const { valid, balances } = await verifyApiKey(apiKey, apiSecret);
+    const exchangeId: ExchangeId = exchange || "kraken";
+    const { valid, balances } = await verifyExchangeKey(exchangeId, apiKey, apiSecret);
 
     if (!valid) {
       return NextResponse.json({ valid: false, error: "Invalid API credentials" });
     }
 
     return NextResponse.json({ valid: true, balances });
-  } catch (err) {
+  } catch {
     return NextResponse.json({ valid: false, error: "Verification failed" });
   }
 }
