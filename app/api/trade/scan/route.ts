@@ -154,7 +154,7 @@ export async function POST(req: NextRequest) {
           { role: "system", content: SCAN_PROMPT },
           { role: "user", content: `Scan these and give me trading signals:\n\n${dataContext}` },
         ],
-        temperature: 0.7,
+        temperature: 0.9,
         max_tokens: 1500,
       }),
     });
