@@ -16,21 +16,16 @@ export default function TokenGate({
   minBalance = 10_000,
   featureName = "Claudia AI",
 }: TokenGateProps) {
-  const { address, isConnected, isReconnecting } = useAccount();
-  const [ready, setReady] = useState(false);
+  const { address, isConnected } = useAccount();
+  const [waited, setWaited] = useState(false);
 
-  // Wait for wallet to fully reconnect before checking balance
+  // Give wagmi 1.5s to reconnect on page load / navigation
   useEffect(() => {
-    if (isConnected && address && !isReconnecting) {
-      setReady(true);
-    } else {
-      // Give wagmi time to reconnect on navigation
-      const timer = setTimeout(() => setReady(true), 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [isConnected, address, isReconnecting]);
+    const timer = setTimeout(() => setWaited(true), 1500);
+    return () => clearTimeout(timer);
+  }, []);
 
-  const { data, isLoading, refetch } = useReadContracts({
+  const { data, isLoading } = useReadContracts({
     contracts: [
       {
         address: CLAUDIA_CONTRACT,
@@ -44,21 +39,23 @@ export default function TokenGate({
         functionName: "decimals",
       },
     ],
-    query: { enabled: isConnected && !!address && ready },
+    query: {
+      enabled: isConnected && !!address,
+      refetchInterval: 30_000, // Re-check every 30s
+    },
   });
 
-  // Refetch when address changes (wallet reconnect)
-  useEffect(() => {
-    if (address && ready) {
-      refetch();
-    }
-  }, [address, ready, refetch]);
-
-  if (!isConnected) {
-    return null;
+  // Still connecting
+  if (!waited || !isConnected) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-accent border-t-transparent" />
+      </div>
+    );
   }
 
-  if (!ready || isLoading || isReconnecting) {
+  // Loading balance
+  if (isLoading || (!data && address)) {
     return (
       <div className="flex items-center justify-center py-20">
         <div className="animate-spin rounded-full h-8 w-8 border-2 border-accent border-t-transparent" />
