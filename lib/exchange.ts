@@ -1,9 +1,13 @@
 /**
- * Unified exchange interface using ccxt.
- * Supports Kraken and Coinbase, extensible to any ccxt exchange.
+ * Unified exchange interface.
+ * Uses ccxt individual exchange imports to keep bundle small.
  */
 
-import ccxt from "ccxt";
+// Direct imports to avoid bundling all 100+ exchanges
+// @ts-expect-error — ccxt subpath imports work at runtime
+import Kraken from "ccxt/js/src/kraken.js";
+// @ts-expect-error
+import Coinbase from "ccxt/js/src/coinbase.js";
 
 export type ExchangeId = "kraken" | "coinbase";
 
@@ -16,14 +20,14 @@ function createExchange(
   exchangeId: ExchangeId,
   apiKey: string,
   apiSecret: string
-): ccxt.Exchange {
+): any {
   const opts = { apiKey, secret: apiSecret, enableRateLimit: true };
 
   switch (exchangeId) {
     case "kraken":
-      return new ccxt.kraken(opts);
+      return new Kraken(opts);
     case "coinbase":
-      return new ccxt.coinbase(opts);
+      return new Coinbase(opts);
     default:
       throw new Error(`Unsupported exchange: ${exchangeId}`);
   }
@@ -115,7 +119,6 @@ export async function placeOrder(
   const pair = `${params.symbol.toUpperCase()}/USD`;
   const type = params.orderType || "market";
 
-  // Place main order
   const order = await exchange.createOrder(
     pair,
     type,
@@ -129,7 +132,6 @@ export async function placeOrder(
     description: `${params.side.toUpperCase()} ${params.amount} ${params.symbol} @ ${type === "market" ? "market" : `$${params.price}`}`,
   };
 
-  // Place stop-loss as separate order
   const closeSide = params.side === "buy" ? "sell" : "buy";
   const slTpParts: string[] = [];
 
