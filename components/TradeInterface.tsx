@@ -341,9 +341,9 @@ export default function TradeInterface() {
           {/* Signals */}
           {step === "signals" && (
             <div className="animate-fade-in">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-6">
                 <h2 className="font-heading text-2xl font-bold text-white">
-                  Claudia&apos;s Signals
+                  Claudia&apos;s Verdict
                 </h2>
                 <div className="flex gap-2">
                   <button
@@ -361,96 +361,167 @@ export default function TradeInterface() {
                 </div>
               </div>
 
-              {/* Price cards */}
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-6">
+              {/* Price ticker strip */}
+              <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
                 {signalData.map((d) => (
-                  <div key={d.symbol} className="bg-surface rounded-lg p-3 border border-white/5">
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono font-bold text-white text-sm">{d.symbol}</span>
-                      <span className={`text-xs ${d.change24h >= 0 ? "text-green-400" : "text-red-400"}`}>
+                  <div
+                    key={d.symbol}
+                    onClick={() => setExecSymbol(d.symbol)}
+                    className={`flex-shrink-0 bg-surface rounded-lg px-4 py-3 border cursor-pointer transition-all ${
+                      execSymbol === d.symbol ? "border-accent" : "border-white/5 hover:border-accent/30"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono font-bold text-white">{d.symbol}</span>
+                      <span className="text-white font-bold">${d.price.toLocaleString()}</span>
+                      <span className={`text-xs font-mono ${d.change24h >= 0 ? "text-green-400" : "text-red-400"}`}>
                         {d.change24h >= 0 ? "+" : ""}{d.change24h}%
                       </span>
                     </div>
-                    <p className="text-white text-lg font-bold mt-1">${d.price.toLocaleString()}</p>
-                    <p className="text-zinc-600 text-[10px]">RSI: {d.rsi}</p>
+                    <div className="flex items-center gap-3 mt-1">
+                      <span className={`text-[10px] font-mono ${
+                        d.rsi > 70 ? "text-red-400" : d.rsi < 30 ? "text-green-400" : "text-zinc-500"
+                      }`}>
+                        RSI {d.rsi}
+                      </span>
+                      <span className="text-zinc-600 text-[10px]">
+                        Vol ${d.volume24h >= 1_000_000 ? `${(d.volume24h / 1_000_000).toFixed(1)}M` : `${(d.volume24h / 1_000).toFixed(0)}K`}
+                      </span>
+                    </div>
                   </div>
                 ))}
               </div>
 
               {/* AI Analysis */}
-              <div className="bg-surface rounded-xl p-5 border border-white/5 mb-6">
+              <div className="bg-surface rounded-xl p-6 border border-white/5 mb-6">
                 <div className="prose prose-invert prose-sm max-w-none
-                                prose-p:my-1 prose-ul:my-1 prose-li:my-0.5
-                                prose-strong:text-accent prose-code:text-coral">
+                                prose-h3:text-accent prose-h3:font-heading prose-h3:text-base prose-h3:mt-4 prose-h3:mb-1
+                                prose-p:my-1.5 prose-ul:my-1 prose-li:my-0.5
+                                prose-strong:text-white prose-em:text-zinc-400 prose-code:text-coral">
                   <ReactMarkdown rehypePlugins={[rehypeSanitize]}>
                     {analysis}
                   </ReactMarkdown>
                 </div>
               </div>
 
-              {/* Quick execute */}
+              {/* Execute section */}
               <div className="bg-surface-light rounded-xl p-5 border border-accent/20">
-                <h3 className="font-heading font-bold text-white text-sm mb-3">Execute a Trade</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-                  <div>
-                    <label className="text-zinc-600 text-[10px] uppercase tracking-widest block mb-1">Coin</label>
-                    <select
-                      value={execSymbol}
-                      onChange={(e) => setExecSymbol(e.target.value)}
-                      className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2
-                                 text-white text-sm outline-none"
-                    >
-                      <option value="">Select</option>
-                      {watchlist.map((s) => (
-                        <option key={s} value={s}>{s}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-zinc-600 text-[10px] uppercase tracking-widest block mb-1">Side</label>
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => setExecSide("buy")}
-                        className={`flex-1 py-2 rounded-lg text-xs font-bold transition-colors ${
-                          execSide === "buy" ? "bg-green-600 text-white" : "bg-surface text-zinc-500"
-                        }`}
-                      >BUY</button>
-                      <button
-                        onClick={() => setExecSide("sell")}
-                        className={`flex-1 py-2 rounded-lg text-xs font-bold transition-colors ${
-                          execSide === "sell" ? "bg-red-600 text-white" : "bg-surface text-zinc-500"
-                        }`}
-                      >SELL</button>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-zinc-600 text-[10px] uppercase tracking-widest block mb-1">Amount (USD)</label>
-                    <input
-                      type="number"
-                      value={execAmount}
-                      onChange={(e) => setExecAmount(e.target.value)}
-                      placeholder="100"
-                      className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2
-                                 text-white text-sm outline-none"
-                    />
-                  </div>
-                  <div className="flex items-end">
-                    <button
-                      onClick={handleExecute}
-                      disabled={!execSymbol || !execAmount || executing}
-                      className="w-full bg-accent hover:bg-accent/80 disabled:opacity-30
-                                 text-white font-bold py-2 rounded-lg text-sm transition-all"
-                    >
-                      {executing ? "Placing..." : "Execute"}
-                    </button>
-                  </div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-heading font-bold text-white">Execute Trade</h3>
+                  {Object.keys(balances).length > 0 && (
+                    <span className="text-zinc-500 text-xs">
+                      Available: <span className="text-white font-mono">
+                        ${balances["ZUSD"]?.toFixed(2) || balances["USD"]?.toFixed(2) || "0.00"} USD
+                      </span>
+                    </span>
+                  )}
                 </div>
 
-                {execResult && (
-                  <p className={`text-sm mt-2 ${execResult.success ? "text-green-400" : "text-red-400"}`}>
-                    {execResult.message}
-                  </p>
-                )}
+                <div className="space-y-3">
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-zinc-600 text-[10px] uppercase tracking-widest block mb-1">Coin</label>
+                      <select
+                        value={execSymbol}
+                        onChange={(e) => setExecSymbol(e.target.value)}
+                        className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5
+                                   text-white text-sm outline-none focus:border-accent/30"
+                      >
+                        <option value="">Select</option>
+                        {watchlist.map((s) => {
+                          const d = signalData.find((x) => x.symbol === s);
+                          return (
+                            <option key={s} value={s}>
+                              {s} — ${d?.price.toLocaleString() || "?"}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-zinc-600 text-[10px] uppercase tracking-widest block mb-1">Side</label>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => setExecSide("buy")}
+                          className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-all ${
+                            execSide === "buy"
+                              ? "bg-green-600 text-white shadow-lg shadow-green-600/20"
+                              : "bg-surface text-zinc-500 hover:text-white"
+                          }`}
+                        >BUY</button>
+                        <button
+                          onClick={() => setExecSide("sell")}
+                          className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-all ${
+                            execSide === "sell"
+                              ? "bg-red-600 text-white shadow-lg shadow-red-600/20"
+                              : "bg-surface text-zinc-500 hover:text-white"
+                          }`}
+                        >SELL</button>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-zinc-600 text-[10px] uppercase tracking-widest block mb-1">
+                        Amount (USD)
+                        {balances["ZUSD"] && (
+                          <button
+                            onClick={() => setExecAmount(String(Math.floor(balances["ZUSD"] || 0)))}
+                            className="text-accent ml-2 hover:text-white"
+                          >
+                            MAX
+                          </button>
+                        )}
+                      </label>
+                      <input
+                        type="number"
+                        value={execAmount}
+                        onChange={(e) => setExecAmount(e.target.value)}
+                        placeholder="100"
+                        className="w-full bg-surface border border-white/10 rounded-lg px-3 py-2.5
+                                   text-white text-sm font-mono outline-none focus:border-accent/30"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Order preview */}
+                  {execSymbol && execAmount && (
+                    <div className="bg-surface rounded-lg px-4 py-2 text-xs text-zinc-400 flex items-center justify-between">
+                      <span>
+                        Market {execSide.toUpperCase()} ~${parseFloat(execAmount || "0").toLocaleString()} of {execSymbol}
+                      </span>
+                      {signalData.find((d) => d.symbol === execSymbol) && (
+                        <span className="text-zinc-600">
+                          ≈ {(parseFloat(execAmount || "0") / (signalData.find((d) => d.symbol === execSymbol)?.price || 1)).toFixed(6)} {execSymbol}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  <button
+                    onClick={handleExecute}
+                    disabled={!execSymbol || !execAmount || executing || parseFloat(execAmount || "0") <= 0}
+                    className={`w-full font-heading font-bold py-3 rounded-xl text-sm transition-all ${
+                      execSide === "buy"
+                        ? "bg-green-600 hover:bg-green-500 disabled:opacity-30 text-white"
+                        : "bg-red-600 hover:bg-red-500 disabled:opacity-30 text-white"
+                    }`}
+                  >
+                    {executing
+                      ? "Placing Order..."
+                      : execSymbol
+                      ? `${execSide.toUpperCase()} ${execSymbol}`
+                      : "Select a coin above"}
+                  </button>
+
+                  {execResult && (
+                    <div className={`rounded-lg px-4 py-3 text-sm ${
+                      execResult.success
+                        ? "bg-green-900/20 text-green-400 border border-green-800/30"
+                        : "bg-red-900/20 text-red-400 border border-red-800/30"
+                    }`}>
+                      {execResult.message}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
