@@ -1,13 +1,14 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useAccount, useReadContracts } from "wagmi";
 import { CLAUDIA_CONTRACT, ERC20_ABI } from "@/lib/contracts";
 import { formatUnits } from "viem";
 
 interface TokenGateProps {
   children: React.ReactNode;
-  minBalance?: number; // Override minimum balance (default: 10,000)
-  featureName?: string; // What this gate protects (for the error message)
+  minBalance?: number;
+  featureName?: string;
 }
 
 export default function TokenGate({
@@ -15,9 +16,21 @@ export default function TokenGate({
   minBalance = 10_000,
   featureName = "Claudia AI",
 }: TokenGateProps) {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, isReconnecting } = useAccount();
+  const [ready, setReady] = useState(false);
 
-  const { data, isLoading } = useReadContracts({
+  // Wait for wallet to fully reconnect before checking balance
+  useEffect(() => {
+    if (isConnected && address && !isReconnecting) {
+      setReady(true);
+    } else {
+      // Give wagmi time to reconnect on navigation
+      const timer = setTimeout(() => setReady(true), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [isConnected, address, isReconnecting]);
+
+  const { data, isLoading, refetch } = useReadContracts({
     contracts: [
       {
         address: CLAUDIA_CONTRACT,
@@ -31,14 +44,21 @@ export default function TokenGate({
         functionName: "decimals",
       },
     ],
-    query: { enabled: isConnected && !!address },
+    query: { enabled: isConnected && !!address && ready },
   });
+
+  // Refetch when address changes (wallet reconnect)
+  useEffect(() => {
+    if (address && ready) {
+      refetch();
+    }
+  }, [address, ready, refetch]);
 
   if (!isConnected) {
     return null;
   }
 
-  if (isLoading) {
+  if (!ready || isLoading || isReconnecting) {
     return (
       <div className="flex items-center justify-center py-20">
         <div className="animate-spin rounded-full h-8 w-8 border-2 border-accent border-t-transparent" />
