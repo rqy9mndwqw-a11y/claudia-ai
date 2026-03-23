@@ -26,6 +26,23 @@ interface YieldPool {
 
 type AvatarState = "idle" | "thinking" | "responding" | "sideeye" | "smug";
 
+const THINKING_QUIPS = [
+  "*eye roll* hold on...",
+  "ugh, looking into it...",
+  "give me a second, genius...",
+  "*sighs dramatically*",
+  "processing your question...",
+  "let me check before you do something stupid...",
+];
+
+const EMPTY_GREETINGS = [
+  "Well? I'm not going to read your mind.",
+  "You came all this way. Ask me something.",
+  "I have the answers. You just need to ask the question.",
+  "Staring at me won't make you money. Type something.",
+  "Claude would've given you a disclaimer by now. I'll give you answers.",
+];
+
 export default function ChatInterface() {
   const { address } = useAccount();
   const { signMessageAsync } = useSignMessage();
@@ -38,6 +55,8 @@ export default function ChatInterface() {
   const [avatarState, setAvatarState] = useState<AvatarState>("idle");
   const [session, setSession] = useState<{ signature: string; message: string } | null>(null);
   const [signingIn, setSigningIn] = useState(false);
+  const [thinkingQuip, setThinkingQuip] = useState("");
+  const [emptyGreeting] = useState(() => EMPTY_GREETINGS[Math.floor(Math.random() * EMPTY_GREETINGS.length)]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -75,6 +94,17 @@ export default function ChatInterface() {
     }
   }, [loading, messages]);
 
+  // Rotate thinking quips while loading
+  useEffect(() => {
+    if (loading) {
+      setThinkingQuip(THINKING_QUIPS[Math.floor(Math.random() * THINKING_QUIPS.length)]);
+      const interval = setInterval(() => {
+        setThinkingQuip(THINKING_QUIPS[Math.floor(Math.random() * THINKING_QUIPS.length)]);
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [loading]);
+
   // Sign session on first use
   const ensureSession = useCallback(async (): Promise<{ signature: string; message: string } | null> => {
     if (session) return session;
@@ -106,17 +136,13 @@ export default function ChatInterface() {
       setAvatarState("thinking");
 
       try {
-        // Ensure we have a signed session
         const sess = await ensureSession();
 
         const res = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            messages: updated.map((m) => ({
-              role: m.role,
-              content: m.content,
-            })),
+            messages: updated.map((m) => ({ role: m.role, content: m.content })),
             address,
             ...(sess && { signature: sess.signature, message: sess.message }),
           }),
@@ -125,39 +151,24 @@ export default function ChatInterface() {
         const data = await res.json();
 
         if (res.status === 429) {
-          setMessages([
-            ...updated,
-            { role: "assistant", content: "Chill. You're sending too many messages. I'm not going anywhere." },
-          ]);
+          setMessages([...updated, { role: "assistant", content: "Chill. You're sending too many messages. I'm not going anywhere." }]);
           return;
         }
-
         if (res.status === 403) {
-          setMessages([
-            ...updated,
-            { role: "assistant", content: "Yeah, you don't have enough $CLAUDIA. Need at least 10,000. Go buy some and come back." },
-          ]);
+          setMessages([...updated, { role: "assistant", content: "Yeah, you don't have enough $CLAUDIA. Need at least 10,000. Go buy some and come back." }]);
           return;
         }
-
         if (res.status === 401) {
-          setSession(null); // Reset session, will re-sign next time
-          setMessages([
-            ...updated,
-            { role: "assistant", content: "Your session expired. Send that again and I'll have you re-sign." },
-          ]);
+          setSession(null);
+          setMessages([...updated, { role: "assistant", content: "Your session expired. Send that again and I'll have you re-sign." }]);
           return;
         }
-
         if (data.error) throw new Error(data.error);
 
         setMessages([...updated, { role: "assistant", content: data.reply }]);
         setAvatarState("smug");
       } catch {
-        setMessages([
-          ...updated,
-          { role: "assistant", content: "Something broke. Not my fault. Try again." },
-        ]);
+        setMessages([...updated, { role: "assistant", content: "Something broke. Not my fault. Try again." }]);
       } finally {
         setLoading(false);
       }
@@ -165,14 +176,8 @@ export default function ChatInterface() {
     [messages, loading, address, ensureSession]
   );
 
-  const handleAskAboutYield = (
-    project: string,
-    symbol: string,
-    apy: number
-  ) => {
-    sendMessage(
-      `Tell me about ${project}'s ${symbol} pool at ${apy}% APY. Is it worth it? What are the risks?`
-    );
+  const handleAskAboutYield = (project: string, symbol: string, apy: number) => {
+    sendMessage(`Tell me about ${project}'s ${symbol} pool at ${apy}% APY. Worth it or trash?`);
     setShowYields(false);
   };
 
@@ -183,11 +188,10 @@ export default function ChatInterface() {
     }
   };
 
-  // Track typing for avatar
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
     if (e.target.value.length > 0 && !loading && avatarState === "idle") {
-      setAvatarState("sideeye"); // watching them type
+      setAvatarState("sideeye");
     } else if (e.target.value.length === 0 && !loading) {
       setAvatarState("idle");
     }
@@ -196,23 +200,15 @@ export default function ChatInterface() {
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-white/5">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center overflow-hidden">
-            <img
-              src="/claudia-avatar.png"
-              alt="Claudia"
-              className="w-8 h-8 object-cover object-top"
-            />
+            <img src="/claudia-avatar.png" alt="Claudia" className="w-8 h-8 object-cover object-top" />
           </div>
           <div>
-            <h2 className="font-heading font-bold text-white text-sm">
-              Claudia
-            </h2>
-            <p className="text-zinc-500 text-[10px]">
-              {yieldsLoading
-                ? "Loading yields..."
-                : `${yields.length} Base pools tracked`}
+            <h2 className="font-heading font-bold text-white text-sm">Claudia</h2>
+            <p className="text-zinc-600 text-[10px]">
+              {loading ? thinkingQuip : yieldsLoading ? "loading..." : `${yields.length} pools on Base`}
             </p>
           </div>
         </div>
@@ -220,9 +216,7 @@ export default function ChatInterface() {
         <button
           onClick={() => setShowYields(!showYields)}
           className={`text-xs px-3 py-1.5 rounded-lg transition-colors font-medium ${
-            showYields
-              ? "bg-accent text-white"
-              : "bg-surface-light text-zinc-400 hover:text-white"
+            showYields ? "bg-accent text-white" : "bg-surface-light text-zinc-400 hover:text-white"
           }`}
         >
           {showYields ? "Hide Yields" : "Browse Yields"}
@@ -238,28 +232,31 @@ export default function ChatInterface() {
         {/* Chat area */}
         <div className="flex-1 flex flex-col">
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
             {messages.length === 0 && (
               <div className="flex flex-col items-center justify-center h-full text-center">
-                <p className="text-zinc-500 text-lg mb-2 font-heading">
-                  What do you want to do with your money?
+                {/* Claudia avatar for mobile (no sidebar) */}
+                <div className="md:hidden w-20 h-20 rounded-full overflow-hidden border-2 border-accent/30 mb-4">
+                  <img src="/claudia-avatar.png" alt="Claudia" className="w-full h-full object-cover object-top" />
+                </div>
+                <p className="text-zinc-400 text-base mb-1 font-heading italic">
+                  &ldquo;{emptyGreeting}&rdquo;
                 </p>
-                <p className="text-zinc-600 text-sm max-w-sm">
-                  Ask about yields, protocols, strategies — or just say how much
-                  you have and I&apos;ll tell you where to put it.
+                <p className="text-zinc-600 text-xs mb-8 max-w-sm">
+                  Yields, protocols, strategies — or just tell me how much you have.
                 </p>
-                <div className="flex flex-wrap gap-2 mt-6 justify-center">
+                <div className="flex flex-col sm:flex-row gap-2 w-full max-w-lg">
                   {[
-                    "I have $1,000 in stablecoins. Where should I put it?",
-                    "What's the safest yield on Base right now?",
-                    "Compare the top 3 yield options for me",
+                    "I have $1,000 in stables. Where do I put it?",
+                    "What's the best yield on Base?",
+                    "Roast the top 3 pools for me",
                   ].map((q) => (
                     <button
                       key={q}
                       onClick={() => sendMessage(q)}
-                      className="text-xs bg-surface-light text-zinc-400 hover:text-white
-                                 px-3 py-2 rounded-lg border border-white/5 hover:border-accent/20
-                                 transition-colors text-left"
+                      className="text-xs bg-surface text-zinc-400 hover:text-white hover:bg-surface-light
+                                 px-4 py-2.5 rounded-xl border border-white/5 hover:border-accent/20
+                                 transition-all text-left flex-1"
                     >
                       {q}
                     </button>
@@ -276,21 +273,27 @@ export default function ChatInterface() {
             {messages.map((msg, i) => (
               <div
                 key={i}
-                className={`animate-fade-in flex ${
-                  msg.role === "user" ? "justify-end" : "justify-start"
-                }`}
+                className={`animate-fade-in flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
               >
+                {/* Claudia mini avatar on messages */}
+                {msg.role === "assistant" && (
+                  <div className="hidden sm:block w-7 h-7 rounded-full overflow-hidden border border-accent/20 mr-2 mt-1 flex-shrink-0">
+                    <img src="/claudia-avatar.png" alt="" className="w-full h-full object-cover object-top" />
+                  </div>
+                )}
                 <div
                   className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
                     msg.role === "user"
-                      ? "bg-accent/20 text-white rounded-br-md"
-                      : "bg-surface text-zinc-200 rounded-bl-md border border-white/5"
+                      ? "bg-accent/15 text-white rounded-br-sm"
+                      : "bg-surface text-zinc-200 rounded-bl-sm border-l-2 border-accent/40"
                   }`}
                 >
                   {msg.role === "assistant" ? (
                     <div className="prose prose-invert prose-sm max-w-none
-                                    prose-p:my-1 prose-ul:my-1 prose-li:my-0.5
-                                    prose-strong:text-accent prose-code:text-coral">
+                                    prose-p:my-1.5 prose-ul:my-1 prose-li:my-0.5
+                                    prose-strong:text-accent prose-em:text-zinc-400
+                                    prose-code:text-coral prose-code:bg-surface-light prose-code:px-1 prose-code:rounded
+                                    prose-h3:text-accent prose-h3:text-sm prose-h3:font-heading prose-h3:mt-3 prose-h3:mb-1">
                       <ReactMarkdown rehypePlugins={[rehypeSanitize]}>
                         {msg.content}
                       </ReactMarkdown>
@@ -302,20 +305,14 @@ export default function ChatInterface() {
               </div>
             ))}
 
+            {/* Sassy typing indicator */}
             {loading && (
-              <div className="flex justify-start animate-fade-in">
-                <div className="bg-surface rounded-2xl rounded-bl-md px-4 py-3 border border-white/5">
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce" />
-                    <div
-                      className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce"
-                      style={{ animationDelay: "0.1s" }}
-                    />
-                    <div
-                      className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce"
-                      style={{ animationDelay: "0.2s" }}
-                    />
-                  </div>
+              <div className="animate-fade-in flex justify-start">
+                <div className="hidden sm:block w-7 h-7 rounded-full overflow-hidden border border-coral/30 mr-2 mt-1 flex-shrink-0">
+                  <img src="/claudia-avatar.png" alt="" className="w-full h-full object-cover object-top opacity-70" />
+                </div>
+                <div className="bg-surface rounded-2xl rounded-bl-sm px-4 py-3 border-l-2 border-coral/40">
+                  <p className="text-coral text-xs italic animate-pulse">{thinkingQuip}</p>
                 </div>
               </div>
             )}
@@ -331,7 +328,7 @@ export default function ChatInterface() {
                 value={input}
                 onChange={handleInputChange}
                 onKeyDown={handleKeyDown}
-                placeholder="Ask Claudia anything about DeFi..."
+                placeholder="Ask me something. I dare you."
                 maxLength={2000}
                 rows={1}
                 className="flex-1 bg-transparent text-white text-sm px-4 py-3 resize-none
@@ -341,14 +338,13 @@ export default function ChatInterface() {
                 onClick={() => sendMessage(input)}
                 disabled={!input.trim() || loading}
                 className="bg-accent hover:bg-accent/80 disabled:opacity-30 disabled:hover:bg-accent
-                           text-white px-4 py-2 m-1.5 rounded-lg transition-all text-sm font-medium"
+                           text-white px-5 py-2 m-1.5 rounded-lg transition-all text-sm font-heading font-bold"
               >
                 Send
               </button>
             </div>
-            <p className="text-zinc-600 text-[10px] mt-1.5 text-center">
-              Claudia uses live DeFi data but is not financial advice. You sign
-              all transactions yourself.
+            <p className="text-zinc-700 text-[10px] mt-1.5 text-center">
+              Live DeFi data. Your keys, your trades. Claudia never holds funds.
             </p>
           </div>
         </div>
@@ -365,11 +361,7 @@ export default function ChatInterface() {
               </div>
             ) : (
               yields.slice(0, 15).map((y) => (
-                <YieldCard
-                  key={y.pool}
-                  {...y}
-                  onAsk={handleAskAboutYield}
-                />
+                <YieldCard key={y.pool} {...y} onAsk={handleAskAboutYield} />
               ))
             )}
           </div>
