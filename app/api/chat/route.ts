@@ -1,5 +1,3 @@
-export const runtime = "edge";
-
 import { NextRequest, NextResponse } from "next/server";
 import { verifyTokenBalance } from "@/lib/verify-token";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -33,7 +31,6 @@ const MAX_MESSAGES = 20;
 
 export async function POST(req: NextRequest) {
   try {
-    // --- Rate limiting (per IP, 20 req/min) ---
     const ip =
       req.headers.get("cf-connecting-ip") ||
       req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
@@ -43,42 +40,25 @@ export async function POST(req: NextRequest) {
     if (!rl.allowed) {
       return NextResponse.json(
         { error: "Slow down. Too many requests." },
-        {
-          status: 429,
-          headers: {
-            "Retry-After": String(Math.ceil((rl.resetAt - Date.now()) / 1000)),
-          },
-        }
+        { status: 429, headers: { "Retry-After": String(Math.ceil((rl.resetAt - Date.now()) / 1000)) } }
       );
     }
 
-    // --- Parse and validate body ---
     const contentLength = req.headers.get("content-length");
     if (contentLength && parseInt(contentLength) > 50_000) {
-      return NextResponse.json(
-        { error: "Request too large" },
-        { status: 413 }
-      );
+      return NextResponse.json({ error: "Request too large" }, { status: 413 });
     }
 
     const body = await req.json();
     const { messages, address } = body;
 
     if (!messages || !Array.isArray(messages)) {
-      return NextResponse.json(
-        { error: "Messages array required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Messages array required" }, { status: 400 });
     }
-
     if (!address || typeof address !== "string") {
-      return NextResponse.json(
-        { error: "Wallet address required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Wallet address required" }, { status: 400 });
     }
 
-    // --- Server-side token gate ---
     const { authorized } = await verifyTokenBalance(address);
     if (!authorized) {
       return NextResponse.json(
@@ -87,31 +67,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // --- Validate individual messages ---
     const validRoles = new Set(["user", "assistant"]);
     const sanitizedMessages = messages
       .slice(-MAX_MESSAGES)
-      .filter(
-        (m: any) =>
-          m &&
-          typeof m === "object" &&
-          validRoles.has(m.role) &&
-          typeof m.content === "string" &&
-          m.content.length > 0
-      )
-      .map((m: any) => ({
-        role: m.role as "user" | "assistant",
-        content: m.content.slice(0, MAX_MESSAGE_LENGTH),
-      }));
+      .filter((m: any) => m && typeof m === "object" && validRoles.has(m.role) && typeof m.content === "string" && m.content.length > 0)
+      .map((m: any) => ({ role: m.role as "user" | "assistant", content: m.content.slice(0, MAX_MESSAGE_LENGTH) }));
 
     if (sanitizedMessages.length === 0) {
-      return NextResponse.json(
-        { error: "No valid messages provided" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "No valid messages provided" }, { status: 400 });
     }
 
-    // --- Fetch yields server-side (never trust client data for prompt context) ---
     const yields = await getYields();
     let yieldContext = "";
     if (yields.length > 0) {
@@ -126,52 +91,32 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // --- Call Groq via fetch (edge-compatible, no Node SDK) ---
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
-      return NextResponse.json(
-        { error: "Service temporarily unavailable" },
-        { status: 503 }
-      );
+      return NextResponse.json({ error: "Service temporarily unavailable" }, { status: 503 });
     }
 
     const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "llama3-8b-8192",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT + yieldContext },
-          ...sanitizedMessages,
-        ],
+        messages: [{ role: "system", content: SYSTEM_PROMPT + yieldContext }, ...sanitizedMessages],
         temperature: 0.7,
         max_tokens: 1024,
       }),
     });
 
     if (!groqRes.ok) {
-      return NextResponse.json(
-        { error: "Something went wrong. Try again in a moment." },
-        { status: 502 }
-      );
+      return NextResponse.json({ error: "Something went wrong. Try again in a moment." }, { status: 502 });
     }
 
     const completion = await groqRes.json();
-    const reply =
-      completion.choices?.[0]?.message?.content || "I got nothing. Try again.";
+    const reply = completion.choices?.[0]?.message?.content || "I got nothing. Try again.";
 
-    return NextResponse.json({
-      reply,
-      remaining: rl.remaining,
-    });
+    return NextResponse.json({ reply, remaining: rl.remaining });
   } catch (err) {
     console.error("Chat error:", err);
-    return NextResponse.json(
-      { error: "Something went wrong. Try again in a moment." },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Something went wrong. Try again in a moment." }, { status: 500 });
   }
 }

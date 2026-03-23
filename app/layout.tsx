@@ -1,7 +1,12 @@
-export const runtime = "edge";
+import type { Metadata } from "next";
+import Providers from "@/components/Providers";
+import "./globals.css";
 
-export const metadata = {
-  title: "Claudia AI",
+export const metadata: Metadata = {
+  title: "Claudia AI — DeFi Without the Drama",
+  description:
+    "AI-powered DeFi assistant that explains yield opportunities in plain English. When Claude won't, Claudia will.",
+  icons: { icon: "/favicon.svg" },
 };
 
 export default function RootLayout({
@@ -11,7 +16,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body className="min-h-screen bg-bg font-body text-zinc-200 antialiased">
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }
