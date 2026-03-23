@@ -110,6 +110,15 @@ export default function PoolDashboard({ poolsState }: PoolDashboardProps) {
 
   return (
     <div className="flex flex-1 overflow-hidden">
+      {/* CLAUDIA sidebar — left, matching chat page layout */}
+      <div className="hidden lg:flex flex-col items-center w-52 border-r border-white/5 bg-surface/30 pt-6 flex-shrink-0">
+        <ClaudiaCharacter
+          imageSrc="/claudia-avatar.png"
+          mood={claudiaMood}
+          message={claudiaMessage}
+        />
+      </div>
+
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Summary bar */}
@@ -229,14 +238,6 @@ export default function PoolDashboard({ poolsState }: PoolDashboardProps) {
         </div>
       </div>
 
-      {/* CLAUDIA sidebar */}
-      <div className="hidden lg:flex flex-col items-center w-52 border-l border-white/5 bg-surface/30 pt-6 flex-shrink-0">
-        <ClaudiaCharacter
-          imageSrc="/claudia-avatar.png"
-          mood={claudiaMood}
-          message={claudiaMessage}
-        />
-      </div>
     </div>
   );
 }

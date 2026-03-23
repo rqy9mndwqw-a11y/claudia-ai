@@ -44,13 +44,16 @@ export default function TokenGate({
     ],
     query: {
       enabled: isConnected && !!address,
-      refetchInterval: 15_000,
-      retry: 5,
-      retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
-      gcTime: 0,
-      staleTime: 0,
-      refetchOnMount: "always",
-      refetchOnWindowFocus: true,
+      // Cache results for 10s — prevents re-fetch storms while still
+      // picking up balance changes reasonably fast
+      staleTime: 10_000,
+      // Keep gc'd data around for 30s so navigating back doesn't re-fetch
+      gcTime: 30_000,
+      // Poll every 30s for balance updates
+      refetchInterval: 30_000,
+      // Retry 3x with exponential backoff on failure
+      retry: 3,
+      retryDelay: 1000,
     },
   });
 
