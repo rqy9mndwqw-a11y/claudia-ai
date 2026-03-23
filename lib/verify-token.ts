@@ -1,15 +1,19 @@
-import { createPublicClient, http, formatUnits } from "viem";
+import { createPublicClient, http, formatUnits, fallback } from "viem";
 import { base } from "viem/chains";
 import { CLAUDIA_CONTRACT, ERC20_ABI, MIN_CLAUDIA_BALANCE } from "./contracts";
 
 const client = createPublicClient({
   chain: base,
-  transport: http("https://mainnet.base.org"),
+  transport: fallback([
+    http("https://mainnet.base.org"),
+    http("https://base.llamarpc.com"),
+    http("https://base.drpc.org"),
+  ]),
 });
 
 /**
  * Server-side verification of $CLAUDIA token balance.
- * Returns { authorized, balance } — calls Base RPC directly.
+ * Uses multiple RPC endpoints with fallback for reliability.
  */
 export async function verifyTokenBalance(
   address: string
