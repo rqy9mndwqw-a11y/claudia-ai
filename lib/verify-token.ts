@@ -16,7 +16,8 @@ const client = createPublicClient({
  * Uses multiple RPC endpoints with fallback for reliability.
  */
 export async function verifyTokenBalance(
-  address: string
+  address: string,
+  minRequired?: number
 ): Promise<{ authorized: boolean; balance: number }> {
   if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
     return { authorized: false, balance: 0 };
@@ -37,7 +38,8 @@ export async function verifyTokenBalance(
   ]);
 
   const balance = Number(formatUnits(rawBalance as bigint, decimals as number));
-  const authorized = balance >= Number(MIN_CLAUDIA_BALANCE);
+  const min = minRequired ?? Number(MIN_CLAUDIA_BALANCE);
+  const authorized = balance >= min;
 
   return { authorized, balance };
 }

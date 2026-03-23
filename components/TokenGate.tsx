@@ -1,14 +1,20 @@
 "use client";
 
 import { useAccount, useReadContracts } from "wagmi";
-import { CLAUDIA_CONTRACT, ERC20_ABI, MIN_CLAUDIA_BALANCE } from "@/lib/contracts";
+import { CLAUDIA_CONTRACT, ERC20_ABI } from "@/lib/contracts";
 import { formatUnits } from "viem";
 
 interface TokenGateProps {
   children: React.ReactNode;
+  minBalance?: number; // Override minimum balance (default: 10,000)
+  featureName?: string; // What this gate protects (for the error message)
 }
 
-export default function TokenGate({ children }: TokenGateProps) {
+export default function TokenGate({
+  children,
+  minBalance = 10_000,
+  featureName = "Claudia AI",
+}: TokenGateProps) {
   const { address, isConnected } = useAccount();
 
   const { data, isLoading } = useReadContracts({
@@ -44,8 +50,7 @@ export default function TokenGate({ children }: TokenGateProps) {
   const decimals = (data?.[1]?.result as number | undefined) ?? 18;
   const balance = rawBalance ?? 0n;
   const humanBalance = Number(formatUnits(balance, decimals));
-  const minRequired = Number(MIN_CLAUDIA_BALANCE);
-  const hasAccess = humanBalance >= minRequired;
+  const hasAccess = humanBalance >= minBalance;
 
   if (!hasAccess) {
     return (
@@ -58,9 +63,9 @@ export default function TokenGate({ children }: TokenGateProps) {
           <p className="text-zinc-400 mb-2">
             You need at least{" "}
             <span className="text-accent font-bold">
-              {minRequired.toLocaleString()} $CLAUDIA
+              {minBalance.toLocaleString()} $CLAUDIA
             </span>{" "}
-            to access Claudia AI.
+            to access {featureName}.
           </p>
           <p className="text-zinc-500 text-sm mb-6">
             Your balance: {humanBalance.toLocaleString()} $CLAUDIA

@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
 
     // Token gate
     try {
-      const { authorized } = await verifyTokenBalance(address);
+      const { authorized } = await verifyTokenBalance(address, 100_000);
       if (!authorized) {
         return NextResponse.json({ error: "Insufficient $CLAUDIA balance." }, { status: 403 });
       }

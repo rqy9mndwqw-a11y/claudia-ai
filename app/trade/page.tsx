@@ -39,7 +39,7 @@ export default function TradePage() {
         <WalletConnect />
       </header>
 
-      <TokenGate>
+      <TokenGate minBalance={100_000} featureName="Claudia Trading Bot">
         <TradeInterface />
       </TokenGate>
     </main>
