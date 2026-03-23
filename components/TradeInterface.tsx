@@ -252,7 +252,7 @@ export default function TradeInterface() {
                     type="password"
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
-                    placeholder="Your Kraken API key"
+                    placeholder={`Your ${exchange === "kraken" ? "Kraken" : "Coinbase"} API key`}
                     className="w-full bg-surface border border-white/10 rounded-lg px-4 py-3
                                text-white text-sm font-mono outline-none focus:border-accent/30"
                   />
@@ -263,7 +263,7 @@ export default function TradeInterface() {
                     type="password"
                     value={apiSecret}
                     onChange={(e) => setApiSecret(e.target.value)}
-                    placeholder="Your Kraken API secret"
+                    placeholder={`Your ${exchange === "kraken" ? "Kraken" : "Coinbase"} API secret`}
                     className="w-full bg-surface border border-white/10 rounded-lg px-4 py-3
                                text-white text-sm font-mono outline-none focus:border-accent/30"
                   />
@@ -280,14 +280,14 @@ export default function TradeInterface() {
                              text-white font-heading font-bold px-6 py-3 rounded-xl
                              transition-all w-full"
                 >
-                  {verifying ? "Verifying..." : "Connect Kraken"}
+                  {verifying ? "Verifying..." : `Connect ${exchange === "kraken" ? "Kraken" : "Coinbase"}`}
                 </button>
 
                 <div className="bg-surface/50 rounded-lg p-3 border border-white/5">
                   <p className="text-zinc-600 text-[10px] leading-relaxed">
                     Your keys are stored encrypted in your browser only. They&apos;re sent over HTTPS
                     when scanning or trading, then discarded. Never stored on our servers.
-                    Claudia can&apos;t withdraw — only trade. Revoke your key anytime from Kraken settings.
+                    Claudia can&apos;t withdraw — only trade. Revoke your key anytime from {exchange === "kraken" ? "Kraken" : "Coinbase"} settings.
                   </p>
                 </div>
               </div>

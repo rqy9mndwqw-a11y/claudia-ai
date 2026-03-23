@@ -6,6 +6,9 @@ import ReactMarkdown from "react-markdown";
 import rehypeSanitize from "rehype-sanitize";
 import YieldCard from "./YieldCard";
 import ClaudiaAvatar from "./ClaudiaAvatar";
+import ClaudiaCharacter from "./ClaudiaCharacter";
+import type { ClaudiaMood } from "./ClaudiaCharacter";
+import { useClaudiaMood } from "../hooks/useClaudiaMood";
 
 interface Message {
   role: "user" | "assistant";
@@ -59,6 +62,18 @@ export default function ChatInterface() {
   const [emptyGreeting] = useState(() => EMPTY_GREETINGS[Math.floor(Math.random() * EMPTY_GREETINGS.length)]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // CLAUDIA mood system — maps dashboard state to character mood
+  const claudiaMood = useClaudiaMood({
+    walletConnected: !!address,
+    loadingData: yieldsLoading,
+    pools: yields.map((y) => ({
+      apy: y.apy,
+      tvlUsd: y.tvlUsd,
+      riskFlags: y.tvlUsd < 100_000,
+    })),
+    aiResponding: loading,
+  });
 
   // Fetch yields on mount
   useEffect(() => {
@@ -224,9 +239,12 @@ export default function ChatInterface() {
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Claudia avatar — left panel on desktop */}
+        {/* Claudia character — left panel on desktop */}
         <div className="hidden md:flex flex-col items-center justify-start w-48 border-r border-white/5 bg-surface/30 pt-6">
-          <ClaudiaAvatar state={avatarState} />
+          <ClaudiaCharacter
+            imageSrc="/claudia-avatar.png"
+            mood={claudiaMood}
+          />
         </div>
 
         {/* Chat area */}

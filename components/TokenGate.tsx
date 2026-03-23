@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useAccount, useReadContracts } from "wagmi";
 import { CLAUDIA_CONTRACT, ERC20_ABI } from "@/lib/contracts";
 import { formatUnits } from "viem";
+import { base } from "wagmi/chains";
 
 interface TokenGateProps {
   children: React.ReactNode;
@@ -25,23 +26,27 @@ export default function TokenGate({
     return () => clearTimeout(timer);
   }, []);
 
-  const { data, isLoading } = useReadContracts({
+  const { data, isLoading, isError, refetch } = useReadContracts({
     contracts: [
       {
         address: CLAUDIA_CONTRACT,
         abi: ERC20_ABI,
         functionName: "balanceOf",
         args: address ? [address] : undefined,
+        chainId: base.id,
       },
       {
         address: CLAUDIA_CONTRACT,
         abi: ERC20_ABI,
         functionName: "decimals",
+        chainId: base.id,
       },
     ],
     query: {
       enabled: isConnected && !!address,
-      refetchInterval: 30_000, // Re-check every 30s
+      refetchInterval: 30_000,
+      retry: 3,
+      retryDelay: 1000,
     },
   });
 
@@ -63,8 +68,35 @@ export default function TokenGate({
     );
   }
 
-  const rawBalance = data?.[0]?.result as bigint | undefined;
-  const decimals = (data?.[1]?.result as number | undefined) ?? 18;
+  // Check if the RPC calls actually succeeded
+  const balanceCall = data?.[0];
+  const decimalsCall = data?.[1];
+  const rpcFailed = isError || balanceCall?.status === "failure" || decimalsCall?.status === "failure";
+
+  if (rpcFailed) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+        <div className="bg-surface rounded-2xl p-8 max-w-md border border-white/5">
+          <h2 className="font-heading text-2xl font-bold text-white mb-3">
+            Can&apos;t read your balance
+          </h2>
+          <p className="text-zinc-400 mb-4 text-sm">
+            The Base RPC didn&apos;t respond. This usually fixes itself in a few seconds.
+          </p>
+          <button
+            onClick={() => refetch()}
+            className="bg-accent hover:bg-accent/80 text-white font-heading font-bold
+                       px-6 py-3 rounded-xl transition-all duration-200"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const rawBalance = balanceCall?.result as bigint | undefined;
+  const decimals = (decimalsCall?.result as number | undefined) ?? 18;
   const balance = rawBalance ?? 0n;
   const humanBalance = Number(formatUnits(balance, decimals));
   const hasAccess = humanBalance >= minBalance;
