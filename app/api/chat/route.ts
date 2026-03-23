@@ -86,16 +86,16 @@ export async function POST(req: NextRequest) {
 
     // --- Server-side token gate — DENY on failure, never fall through ---
     try {
-      const { authorized } = await verifyTokenBalance(address);
+      const { authorized, balance } = await verifyTokenBalance(address);
       if (!authorized) {
         return NextResponse.json(
-          { error: "Insufficient $CLAUDIA balance. Minimum 10,000 required." },
+          { error: `Insufficient $CLAUDIA balance. You have ${balance.toLocaleString()}, need 10,000.` },
           { status: 403 }
         );
       }
-    } catch {
+    } catch (err) {
       return NextResponse.json(
-        { error: "Unable to verify token balance. Try again in a moment." },
+        { error: `Unable to verify token balance: ${(err as Error).message?.slice(0, 100)}` },
         { status: 503 }
       );
     }
