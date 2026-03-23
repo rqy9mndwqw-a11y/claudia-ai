@@ -1,175 +1,212 @@
 /**
- * Unified exchange interface.
- * Uses ccxt individual exchange imports to keep bundle small.
+ * Unified exchange interface using direct REST API calls.
+ * No ccxt — keeps bundle small for Cloudflare Workers.
  */
 
-// Direct imports to avoid bundling all 100+ exchanges
-// @ts-expect-error — ccxt subpath imports work at runtime
-import Kraken from "ccxt/js/src/kraken.js";
-// @ts-expect-error
-import Coinbase from "ccxt/js/src/coinbase.js";
+import { createHmac, createHash } from "node:crypto";
 
 export type ExchangeId = "kraken" | "coinbase";
 
-export const SUPPORTED_EXCHANGES: { id: ExchangeId; name: string; notes: string }[] = [
-  { id: "kraken", name: "Kraken", notes: "API key with Trade + Query permissions" },
-  { id: "coinbase", name: "Coinbase Advanced", notes: "API key with Trade permissions" },
+export const SUPPORTED_EXCHANGES: { id: ExchangeId; name: string }[] = [
+  { id: "kraken", name: "Kraken" },
+  { id: "coinbase", name: "Coinbase" },
 ];
 
-function createExchange(
-  exchangeId: ExchangeId,
-  apiKey: string,
-  apiSecret: string
-): any {
-  const opts = { apiKey, secret: apiSecret, enableRateLimit: true };
+// ─── Kraken ────────────────────────────────────────────────────────
 
-  switch (exchangeId) {
-    case "kraken":
-      return new Kraken(opts);
-    case "coinbase":
-      return new Coinbase(opts);
-    default:
-      throw new Error(`Unsupported exchange: ${exchangeId}`);
-  }
+const KRAKEN_API = "https://api.kraken.com";
+
+const KRAKEN_PAIRS: Record<string, string> = {
+  BTC: "XXBTZUSD", ETH: "XETHZUSD", SOL: "SOLUSD", DOGE: "XDGUSD",
+  ADA: "ADAUSD", AVAX: "AVAXUSD", LINK: "LINKUSD", DOT: "DOTUSD",
+  MATIC: "MATICUSD", XRP: "XXRPZUSD", LTC: "XLTCZUSD", UNI: "UNIUSD",
+  AAVE: "AAVEUSD", ATOM: "ATOMUSD", NEAR: "NEARUSD", OP: "OPUSD",
+  ARB: "ARBUSD", SUI: "SUIUSD", APT: "APTUSD", FIL: "FILUSD",
+};
+
+function krakenSign(path: string, nonce: number, postData: string, secret: string): string {
+  const hash = createHash("sha256").update(nonce + postData).digest();
+  return createHmac("sha512", Buffer.from(secret, "base64"))
+    .update(Buffer.concat([Buffer.from(path), hash]))
+    .digest("base64");
 }
 
-/** Verify API key by fetching balance */
+async function krakenPrivate(path: string, apiKey: string, apiSecret: string, params: Record<string, string> = {}) {
+  const nonce = Date.now() * 1000;
+  const body = { nonce: String(nonce), ...params };
+  const postData = new URLSearchParams(body).toString();
+  const sig = krakenSign(path, nonce, postData, apiSecret);
+  const res = await fetch(`${KRAKEN_API}${path}`, {
+    method: "POST",
+    headers: { "API-Key": apiKey, "API-Sign": sig, "Content-Type": "application/x-www-form-urlencoded" },
+    body: postData,
+  });
+  const data = await res.json();
+  if (data.error?.length > 0) throw new Error(data.error.join(", "));
+  return data.result;
+}
+
+// ─── Coinbase ──────────────────────────────────────────────────────
+
+const COINBASE_API = "https://api.coinbase.com";
+
+function coinbaseSign(timestamp: string, method: string, path: string, body: string, secret: string): string {
+  return createHmac("sha256", secret).update(timestamp + method + path + body).digest("hex");
+}
+
+async function coinbaseRequest(method: string, path: string, apiKey: string, apiSecret: string, body?: any) {
+  const timestamp = String(Math.floor(Date.now() / 1000));
+  const bodyStr = body ? JSON.stringify(body) : "";
+  const sig = coinbaseSign(timestamp, method, path, bodyStr, apiSecret);
+  const res = await fetch(`${COINBASE_API}${path}`, {
+    method,
+    headers: {
+      "CB-ACCESS-KEY": apiKey,
+      "CB-ACCESS-SIGN": sig,
+      "CB-ACCESS-TIMESTAMP": timestamp,
+      "Content-Type": "application/json",
+    },
+    body: method !== "GET" ? bodyStr : undefined,
+  });
+  return res.json();
+}
+
+// ─── Unified Interface ─────────────────────────────────────────────
+
 export async function verifyExchangeKey(
-  exchangeId: ExchangeId,
-  apiKey: string,
-  apiSecret: string
+  exchangeId: ExchangeId, apiKey: string, apiSecret: string
 ): Promise<{ valid: boolean; balances: Record<string, number> }> {
   try {
-    const exchange = createExchange(exchangeId, apiKey, apiSecret);
-    const balance = await exchange.fetchBalance();
-
-    const balances: Record<string, number> = {};
-    for (const [k, v] of Object.entries(balance.total || {})) {
-      const val = Number(v);
-      if (val > 0) balances[k] = val;
+    if (exchangeId === "kraken") {
+      const result = await krakenPrivate("/0/private/Balance", apiKey, apiSecret);
+      const balances: Record<string, number> = {};
+      for (const [k, v] of Object.entries(result || {})) {
+        const val = parseFloat(v as string);
+        if (val > 0) balances[k] = val;
+      }
+      return { valid: true, balances };
+    } else {
+      const data = await coinbaseRequest("GET", "/v2/accounts?limit=100", apiKey, apiSecret);
+      const balances: Record<string, number> = {};
+      for (const acct of data.data || []) {
+        const val = parseFloat(acct.balance?.amount || "0");
+        if (val > 0) balances[acct.balance?.currency || acct.currency?.code || "?"] = val;
+      }
+      return { valid: true, balances };
     }
-
-    return { valid: true, balances };
   } catch {
     return { valid: false, balances: {} };
   }
 }
 
-/** Fetch OHLCV data (public, no auth needed) */
 export async function fetchOHLCV(
-  exchangeId: ExchangeId,
-  symbol: string,
-  timeframe = "1h",
-  limit = 100
-): Promise<{
-  timestamps: number[];
-  open: number[];
-  high: number[];
-  low: number[];
-  close: number[];
-  volume: number[];
-}> {
-  const exchange = createExchange(exchangeId, "", "");
-  const pair = `${symbol.toUpperCase()}/USD`;
-  const ohlcv = await exchange.fetchOHLCV(pair, timeframe, undefined, limit);
-
-  return {
-    timestamps: ohlcv.map((c) => c[0] as number),
-    open: ohlcv.map((c) => c[1] as number),
-    high: ohlcv.map((c) => c[2] as number),
-    low: ohlcv.map((c) => c[3] as number),
-    close: ohlcv.map((c) => c[4] as number),
-    volume: ohlcv.map((c) => c[5] as number),
-  };
-}
-
-/** Fetch ticker price */
-export async function fetchTicker(
-  exchangeId: ExchangeId,
-  symbol: string
-): Promise<{ price: number; bid: number; ask: number; volume24h: number }> {
-  const exchange = createExchange(exchangeId, "", "");
-  const pair = `${symbol.toUpperCase()}/USD`;
-  const ticker = await exchange.fetchTicker(pair);
-
-  return {
-    price: ticker.last || 0,
-    bid: ticker.bid || 0,
-    ask: ticker.ask || 0,
-    volume24h: (ticker.quoteVolume || ticker.baseVolume || 0),
-  };
-}
-
-/** Place an order with optional stop-loss and take-profit */
-export async function placeOrder(
-  exchangeId: ExchangeId,
-  apiKey: string,
-  apiSecret: string,
-  params: {
-    symbol: string;
-    side: "buy" | "sell";
-    amount: number;
-    price?: number;
-    orderType?: "market" | "limit";
-    stopLoss?: number;
-    takeProfit?: number;
+  exchangeId: ExchangeId, symbol: string, _timeframe = "1h", _limit = 100
+): Promise<{ timestamps: number[]; open: number[]; high: number[]; low: number[]; close: number[]; volume: number[] }> {
+  if (exchangeId === "kraken") {
+    const pair = KRAKEN_PAIRS[symbol.toUpperCase()] || `${symbol.toUpperCase()}USD`;
+    const res = await fetch(`${KRAKEN_API}/0/public/OHLC?pair=${pair}&interval=60`);
+    const data = await res.json();
+    if (data.error?.length > 0) throw new Error(data.error.join(", "));
+    const key = Object.keys(data.result).find((k) => k !== "last");
+    if (!key) throw new Error(`No data for ${symbol}`);
+    const candles = data.result[key];
+    return {
+      timestamps: candles.map((c: any) => c[0]),
+      open: candles.map((c: any) => parseFloat(c[1])),
+      high: candles.map((c: any) => parseFloat(c[2])),
+      low: candles.map((c: any) => parseFloat(c[3])),
+      close: candles.map((c: any) => parseFloat(c[4])),
+      volume: candles.map((c: any) => parseFloat(c[6])),
+    };
+  } else {
+    // Coinbase public candles
+    const pair = `${symbol.toUpperCase()}-USD`;
+    const res = await fetch(`https://api.exchange.coinbase.com/products/${pair}/candles?granularity=3600`);
+    const candles = await res.json();
+    if (!Array.isArray(candles)) throw new Error(`No data for ${symbol}`);
+    const sorted = candles.reverse(); // Coinbase returns newest first
+    return {
+      timestamps: sorted.map((c: any) => c[0] * 1000),
+      low: sorted.map((c: any) => c[1]),
+      high: sorted.map((c: any) => c[2]),
+      open: sorted.map((c: any) => c[3]),
+      close: sorted.map((c: any) => c[4]),
+      volume: sorted.map((c: any) => c[5]),
+    };
   }
+}
+
+export async function fetchTicker(
+  exchangeId: ExchangeId, symbol: string
+): Promise<{ price: number; bid: number; ask: number; volume24h: number }> {
+  if (exchangeId === "kraken") {
+    const pair = KRAKEN_PAIRS[symbol.toUpperCase()] || `${symbol.toUpperCase()}USD`;
+    const res = await fetch(`${KRAKEN_API}/0/public/Ticker?pair=${pair}`);
+    const data = await res.json();
+    if (data.error?.length > 0) throw new Error(data.error.join(", "));
+    const key = Object.keys(data.result)[0];
+    const t = data.result[key];
+    return { price: parseFloat(t.c[0]), bid: parseFloat(t.b[0]), ask: parseFloat(t.a[0]), volume24h: parseFloat(t.v[1]) };
+  } else {
+    const pair = `${symbol.toUpperCase()}-USD`;
+    const res = await fetch(`https://api.exchange.coinbase.com/products/${pair}/ticker`);
+    const t = await res.json();
+    return { price: parseFloat(t.price || "0"), bid: parseFloat(t.bid || "0"), ask: parseFloat(t.ask || "0"), volume24h: parseFloat(t.volume || "0") };
+  }
+}
+
+export async function placeOrder(
+  exchangeId: ExchangeId, apiKey: string, apiSecret: string,
+  params: { symbol: string; side: "buy" | "sell"; amount: number; price?: number; orderType?: "market" | "limit"; stopLoss?: number; takeProfit?: number }
 ): Promise<{ orderId: string; description: string; closeDescription?: string }> {
-  const exchange = createExchange(exchangeId, apiKey, apiSecret);
-  const pair = `${params.symbol.toUpperCase()}/USD`;
   const type = params.orderType || "market";
 
-  const order = await exchange.createOrder(
-    pair,
-    type,
-    params.side,
-    params.amount,
-    type === "limit" ? params.price : undefined
-  );
+  if (exchangeId === "kraken") {
+    const pair = KRAKEN_PAIRS[params.symbol.toUpperCase()] || `${params.symbol.toUpperCase()}USD`;
+    const orderParams: Record<string, string> = {
+      ordertype: type, type: params.side, volume: String(params.amount), pair,
+    };
+    if (type === "limit" && params.price) orderParams.price = String(params.price);
+    if (params.stopLoss) { orderParams["close[ordertype]"] = "stop-loss"; orderParams["close[price]"] = String(params.stopLoss); }
 
-  const result: { orderId: string; description: string; closeDescription?: string } = {
-    orderId: order.id || "unknown",
-    description: `${params.side.toUpperCase()} ${params.amount} ${params.symbol} @ ${type === "market" ? "market" : `$${params.price}`}`,
-  };
+    const result = await krakenPrivate("/0/private/AddOrder", apiKey, apiSecret, orderParams);
+    const out: any = { orderId: result.txid?.[0] || "unknown", description: result.descr?.order || "Order placed" };
 
-  const closeSide = params.side === "buy" ? "sell" : "buy";
-  const slTpParts: string[] = [];
-
-  if (params.stopLoss) {
-    try {
-      await exchange.createOrder(
-        pair,
-        "stop-loss",
-        closeSide,
-        params.amount,
-        undefined,
-        { stopPrice: params.stopLoss, triggerPrice: params.stopLoss }
-      );
-      slTpParts.push(`SL: $${params.stopLoss}`);
-    } catch {
-      slTpParts.push(`SL: $${params.stopLoss} (failed — place manually)`);
+    if (params.stopLoss) out.closeDescription = `SL: $${params.stopLoss}`;
+    if (params.takeProfit) {
+      try {
+        const closeSide = params.side === "buy" ? "sell" : "buy";
+        await krakenPrivate("/0/private/AddOrder", apiKey, apiSecret, {
+          ordertype: "take-profit", type: closeSide, volume: String(params.amount), pair, price: String(params.takeProfit),
+        });
+        out.closeDescription = (out.closeDescription || "") + ` | TP: $${params.takeProfit}`;
+      } catch {
+        out.closeDescription = (out.closeDescription || "") + ` | TP: $${params.takeProfit} (failed)`;
+      }
     }
-  }
+    return out;
+  } else {
+    // Coinbase Advanced Trade API
+    const pair = `${params.symbol.toUpperCase()}-USD`;
+    const orderId = `claudia-${Date.now()}`;
+    const orderBody: any = {
+      client_order_id: orderId,
+      product_id: pair,
+      side: params.side.toUpperCase(),
+      order_configuration: type === "market"
+        ? { market_market_ioc: { quote_size: String(params.amount) } }
+        : { limit_limit_gtc: { base_size: String(params.amount), limit_price: String(params.price) } },
+    };
 
-  if (params.takeProfit) {
-    try {
-      await exchange.createOrder(
-        pair,
-        "take-profit",
-        closeSide,
-        params.amount,
-        undefined,
-        { stopPrice: params.takeProfit, triggerPrice: params.takeProfit }
-      );
-      slTpParts.push(`TP: $${params.takeProfit}`);
-    } catch {
-      slTpParts.push(`TP: $${params.takeProfit} (failed — place manually)`);
-    }
-  }
+    const data = await coinbaseRequest("POST", "/api/v3/brokerage/orders", apiKey, apiSecret, orderBody);
+    if (data.error || data.errors) throw new Error(data.error || data.errors?.[0]?.message || "Order failed");
 
-  if (slTpParts.length > 0) {
-    result.closeDescription = slTpParts.join(" | ");
+    return {
+      orderId: data.success_response?.order_id || orderId,
+      description: `${params.side.toUpperCase()} $${params.amount} of ${params.symbol} @ market`,
+      closeDescription: params.stopLoss || params.takeProfit
+        ? `SL/TP not supported on Coinbase via API — set manually`
+        : undefined,
+    };
   }
-
-  return result;
 }
