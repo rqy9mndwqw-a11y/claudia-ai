@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useAccount } from "wagmi";
+import { useAccount, useSignMessage } from "wagmi";
 import ReactMarkdown from "react-markdown";
 import rehypeSanitize from "rehype-sanitize";
 import YieldCard from "./YieldCard";
@@ -24,18 +24,24 @@ interface YieldPool {
   poolMeta: string | null;
 }
 
+type AvatarState = "idle" | "thinking" | "responding" | "sideeye" | "smug";
+
 export default function ChatInterface() {
   const { address } = useAccount();
+  const { signMessageAsync } = useSignMessage();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [yields, setYields] = useState<YieldPool[]>([]);
   const [yieldsLoading, setYieldsLoading] = useState(true);
   const [showYields, setShowYields] = useState(false);
+  const [avatarState, setAvatarState] = useState<AvatarState>("idle");
+  const [session, setSession] = useState<{ signature: string; message: string } | null>(null);
+  const [signingIn, setSigningIn] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Fetch yields on mount (for sidebar display only — chat uses server-side data)
+  // Fetch yields on mount
   useEffect(() => {
     fetch("/api/yields")
       .then((r) => r.json())
@@ -51,6 +57,43 @@ export default function ChatInterface() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Avatar state: side-eye when yields panel is open
+  useEffect(() => {
+    if (showYields && !loading) {
+      setAvatarState("sideeye");
+    } else if (!loading && messages.length === 0) {
+      setAvatarState("idle");
+    }
+  }, [showYields, loading, messages.length]);
+
+  // Avatar state: smug after responding, then back to idle
+  useEffect(() => {
+    if (!loading && messages.length > 0 && messages[messages.length - 1]?.role === "assistant") {
+      setAvatarState("smug");
+      const timer = setTimeout(() => setAvatarState("idle"), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [loading, messages]);
+
+  // Sign session on first use
+  const ensureSession = useCallback(async (): Promise<{ signature: string; message: string } | null> => {
+    if (session) return session;
+
+    setSigningIn(true);
+    try {
+      const res = await fetch("/api/session");
+      const { message } = await res.json();
+      const signature = await signMessageAsync({ message });
+      const s = { signature, message };
+      setSession(s);
+      setSigningIn(false);
+      return s;
+    } catch {
+      setSigningIn(false);
+      return null;
+    }
+  }, [session, signMessageAsync]);
+
   const sendMessage = useCallback(
     async (text: string) => {
       if (!text.trim() || loading || !address) return;
@@ -60,8 +103,12 @@ export default function ChatInterface() {
       setMessages(updated);
       setInput("");
       setLoading(true);
+      setAvatarState("thinking");
 
       try {
+        // Ensure we have a signed session
+        const sess = await ensureSession();
+
         const res = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -71,6 +118,7 @@ export default function ChatInterface() {
               content: m.content,
             })),
             address,
+            ...(sess && { signature: sess.signature, message: sess.message }),
           }),
         });
 
@@ -79,7 +127,7 @@ export default function ChatInterface() {
         if (res.status === 429) {
           setMessages([
             ...updated,
-            { role: "assistant", content: "You're sending too many messages. Chill for a minute." },
+            { role: "assistant", content: "Chill. You're sending too many messages. I'm not going anywhere." },
           ]);
           return;
         }
@@ -87,7 +135,16 @@ export default function ChatInterface() {
         if (res.status === 403) {
           setMessages([
             ...updated,
-            { role: "assistant", content: "Your $CLAUDIA balance is too low. You need at least 10,000 to use this." },
+            { role: "assistant", content: "Yeah, you don't have enough $CLAUDIA. Need at least 10,000. Go buy some and come back." },
+          ]);
+          return;
+        }
+
+        if (res.status === 401) {
+          setSession(null); // Reset session, will re-sign next time
+          setMessages([
+            ...updated,
+            { role: "assistant", content: "Your session expired. Send that again and I'll have you re-sign." },
           ]);
           return;
         }
@@ -95,19 +152,17 @@ export default function ChatInterface() {
         if (data.error) throw new Error(data.error);
 
         setMessages([...updated, { role: "assistant", content: data.reply }]);
+        setAvatarState("smug");
       } catch {
         setMessages([
           ...updated,
-          {
-            role: "assistant",
-            content: "Something broke. Try again in a sec.",
-          },
+          { role: "assistant", content: "Something broke. Not my fault. Try again." },
         ]);
       } finally {
         setLoading(false);
       }
     },
-    [messages, loading, address]
+    [messages, loading, address, ensureSession]
   );
 
   const handleAskAboutYield = (
@@ -128,22 +183,26 @@ export default function ChatInterface() {
     }
   };
 
+  // Track typing for avatar
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value);
+    if (e.target.value.length > 0 && !loading && avatarState === "idle") {
+      setAvatarState("sideeye"); // watching them type
+    } else if (e.target.value.length === 0 && !loading) {
+      setAvatarState("idle");
+    }
+  };
+
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center overflow-hidden">
             <img
-              src="/claudia-logo.svg"
+              src="/claudia-avatar.png"
               alt="Claudia"
-              className="w-6 h-6 rounded-full"
-              onError={(e) => {
-                const el = e.target as HTMLImageElement;
-                el.style.display = "none";
-                el.parentElement!.innerHTML =
-                  '<span class="text-accent text-sm font-bold">C</span>';
-              }}
+              className="w-8 h-8 object-cover object-top"
             />
           </div>
           <div>
@@ -173,7 +232,7 @@ export default function ChatInterface() {
       <div className="flex flex-1 overflow-hidden">
         {/* Claudia avatar — left panel on desktop */}
         <div className="hidden md:flex flex-col items-center justify-start w-48 border-r border-white/5 bg-surface/30 pt-6">
-          <ClaudiaAvatar state={loading ? "thinking" : messages.length > 0 && messages[messages.length - 1]?.role === "assistant" ? "responding" : "idle"} />
+          <ClaudiaAvatar state={avatarState} />
         </div>
 
         {/* Chat area */}
@@ -206,6 +265,11 @@ export default function ChatInterface() {
                     </button>
                   ))}
                 </div>
+                {signingIn && (
+                  <p className="text-coral text-xs mt-4 animate-pulse">
+                    Sign the message in your wallet to verify ownership...
+                  </p>
+                )}
               </div>
             )}
 
@@ -265,7 +329,7 @@ export default function ChatInterface() {
               <textarea
                 ref={inputRef}
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={handleInputChange}
                 onKeyDown={handleKeyDown}
                 placeholder="Ask Claudia anything about DeFi..."
                 maxLength={2000}

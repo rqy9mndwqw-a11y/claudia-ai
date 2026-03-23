@@ -64,6 +64,19 @@ h1, h2, h3, h4, h5, h6 {
   60% { transform: translateY(-2px) rotate(-1deg); }
   100% { transform: translateY(0) rotate(0deg); }
 }
+@keyframes sideeye {
+  0%, 100% { transform: translateX(0) rotate(0deg); }
+  30% { transform: translateX(4px) rotate(-2deg); }
+  70% { transform: translateX(3px) rotate(-1deg); }
+}
+@keyframes smug {
+  0% { transform: translateY(0) scale(1); }
+  30% { transform: translateY(-6px) scale(1.03); }
+  60% { transform: translateY(-3px) scale(1.01); }
+  100% { transform: translateY(0) scale(1); }
+}
 .animate-float { animation: float 4s ease-in-out infinite; }
 .animate-think { animation: think 1.5s ease-in-out infinite; }
 .animate-sass { animation: sass 2s ease-in-out; }
+.animate-sideeye { animation: sideeye 3s ease-in-out infinite; }
+.animate-smug { animation: smug 1.5s ease-out; }
