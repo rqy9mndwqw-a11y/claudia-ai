@@ -59,13 +59,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Wallet address required" }, { status: 400 });
     }
 
-    const { authorized } = await verifyTokenBalance(address);
-    if (!authorized) {
-      return NextResponse.json(
-        { error: "Insufficient $CLAUDIA balance. Minimum 10,000 required." },
-        { status: 403 }
-      );
-    }
+    // TODO: Re-enable server-side token gate once viem RPC works on CF Workers
+    // const { authorized } = await verifyTokenBalance(address);
+    // if (!authorized) {
+    //   return NextResponse.json(
+    //     { error: "Insufficient $CLAUDIA balance. Minimum 10,000 required." },
+    //     { status: 403 }
+    //   );
+    // }
 
     const validRoles = new Set(["user", "assistant"]);
     const sanitizedMessages = messages
