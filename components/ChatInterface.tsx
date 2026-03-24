@@ -316,31 +316,32 @@ export default function ChatInterface() {
                 key={i}
                 className={`animate-fade-in flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
               >
-                {/* Claudia mini avatar on messages */}
                 {msg.role === "assistant" && (
-                  <div className="hidden sm:block w-7 h-7 rounded-full overflow-hidden border border-accent/20 mr-2 mt-1 flex-shrink-0">
-                    <img src="/claudia-avatar.png" alt="" className="w-full h-full object-cover object-top" />
+                  <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-accent/20 mr-3 mt-1 flex-shrink-0 shadow-lg shadow-accent/5">
+                    <img src="/claudia-avatar.png" alt="" className="w-full h-full object-cover object-top scale-110" />
                   </div>
                 )}
                 <div
-                  className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                  className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-5 py-3.5 text-sm leading-relaxed shadow-sm ${
                     msg.role === "user"
-                      ? "bg-accent/15 text-white rounded-br-sm"
-                      : "bg-surface text-zinc-200 rounded-bl-sm border-l-2 border-accent/40"
+                      ? "bg-gradient-to-br from-accent/20 to-accent/5 text-white rounded-tr-none border border-accent/10"
+                      : "bg-surface-light/40 text-zinc-100 rounded-tl-none border border-white/5 backdrop-blur-sm"
                   }`}
                 >
                   {msg.role === "assistant" ? (
                     <div className="prose prose-invert prose-sm max-w-none
                                     prose-p:my-1.5 prose-ul:my-1 prose-li:my-0.5
-                                    prose-strong:text-accent prose-em:text-zinc-400
-                                    prose-code:text-coral prose-code:bg-surface-light prose-code:px-1 prose-code:rounded
-                                    prose-h3:text-accent prose-h3:text-sm prose-h3:font-heading prose-h3:mt-3 prose-h3:mb-1">
+                                    prose-strong:text-accent prose-strong:font-bold
+                                    prose-em:text-zinc-400 prose-em:italic
+                                    prose-code:text-coral prose-code:bg-black/30 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none
+                                    prose-h3:text-white prose-h3:text-sm prose-h3:font-heading prose-h3:font-bold prose-h3:mt-4 prose-h3:mb-1.5
+                                    prose-a:text-accent prose-a:no-underline hover:prose-a:underline">
                       <ReactMarkdown rehypePlugins={[rehypeSanitize]}>
                         {msg.content}
                       </ReactMarkdown>
                     </div>
                   ) : (
-                    msg.content
+                    <span className="font-medium">{msg.content}</span>
                   )}
                 </div>
               </div>
@@ -349,11 +350,18 @@ export default function ChatInterface() {
             {/* Sassy typing indicator */}
             {loading && (
               <div className="animate-fade-in flex justify-start">
-                <div className="hidden sm:block w-7 h-7 rounded-full overflow-hidden border border-coral/30 mr-2 mt-1 flex-shrink-0">
-                  <img src="/claudia-avatar.png" alt="" className="w-full h-full object-cover object-top opacity-70" />
+                <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-coral/20 mr-3 mt-1 flex-shrink-0 animate-bounce">
+                  <img src="/claudia-avatar.png" alt="" className="w-full h-full object-cover object-top grayscale opacity-70" />
                 </div>
-                <div className="bg-surface rounded-2xl rounded-bl-sm px-4 py-3 border-l-2 border-coral/40">
-                  <p className="text-coral text-xs italic animate-pulse">{thinkingQuip}</p>
+                <div className="bg-surface-light/20 rounded-2xl rounded-tl-none px-5 py-3 border border-white/5 backdrop-blur-sm">
+                  <div className="flex items-center gap-2">
+                    <div className="flex gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-coral/40 animate-pulse" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-coral/60 animate-pulse [animation-delay:0.2s]" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-coral/80 animate-pulse [animation-delay:0.4s]" />
+                    </div>
+                    <p className="text-coral/80 text-[11px] font-bold uppercase tracking-widest italic">{thinkingQuip}</p>
+                  </div>
                 </div>
               </div>
             )}

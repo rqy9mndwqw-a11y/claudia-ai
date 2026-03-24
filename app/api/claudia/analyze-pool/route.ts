@@ -4,11 +4,10 @@ import { requireAuthAndBalance, rateLimit } from "@/lib/auth";
 const SYSTEM_PROMPT = `You are CLAUDIA, an AI with serious attitude who lives inside a DeFi dashboard.
 You are brutally honest, a little sarcastic, but genuinely knowledgeable about DeFi.
 You give your real opinion on yield pools — you don't sugarcoat risk and you don't hype mediocre yields.
-You speak in short punchy sentences. You use casual language.
+You speak in short punchy sentences. You use casual language but proper grammar and spelling.
 You are not a financial advisor and you say so exactly once if asked, never again.
-Keep responses under 60 words. Never use emojis. Never use hashtags.`;
-
-const MAX_STREAM_BYTES = 4096;
+Keep responses under 80 words. Never use emojis. Never use hashtags.
+Double-check your spelling before responding. No typos.`;
 
 /** Sanitize pool data to prevent prompt injection. */
 function sanitizePoolField(value: unknown): string {
@@ -56,6 +55,8 @@ export async function POST(req: NextRequest) {
       .filter(Boolean)
       .join(". ");
 
+    // Non-streaming request — response is only ~80 words,
+    // streaming was causing garbled output from split SSE chunks
     const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -68,67 +69,30 @@ export async function POST(req: NextRequest) {
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: `Give me your honest take on this pool: ${poolDescription}` },
         ],
-        temperature: 0.9,
-        max_tokens: 150,
-        stream: true,
+        temperature: 0.7,
+        max_tokens: 200,
+        stream: false,
       }),
     });
 
-    if (!groqRes.ok || !groqRes.body) {
+    if (!groqRes.ok) {
       return NextResponse.json(
         { error: "I had thoughts on this one but they didn't survive the trip. Try clicking again." },
         { status: 502 }
       );
     }
 
-    // Stream with byte limit
-    const encoder = new TextEncoder();
-    const decoder = new TextDecoder();
-    const reader = groqRes.body.getReader();
-    let totalBytes = 0;
+    const data = await groqRes.json();
+    const content = data.choices?.[0]?.message?.content?.trim();
 
-    const stream = new ReadableStream({
-      async start(controller) {
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
+    if (!content) {
+      return NextResponse.json(
+        { error: "Claudia had nothing to say. That's a first. Try again." },
+        { status: 502 }
+      );
+    }
 
-            const chunk = decoder.decode(value, { stream: true });
-            const lines = chunk.split("\n").filter((l) => l.startsWith("data: "));
-
-            for (const line of lines) {
-              const data = line.slice(6).trim();
-              if (data === "[DONE]") continue;
-              try {
-                const parsed = JSON.parse(data);
-                const content = parsed.choices?.[0]?.delta?.content;
-                if (content) {
-                  const encoded = encoder.encode(content);
-                  totalBytes += encoded.length;
-                  if (totalBytes > MAX_STREAM_BYTES) break;
-                  controller.enqueue(encoded);
-                }
-              } catch {
-                // Skip malformed chunks
-              }
-            }
-
-            if (totalBytes > MAX_STREAM_BYTES) break;
-          }
-        } finally {
-          controller.close();
-          reader.releaseLock();
-        }
-      },
-    });
-
-    return new Response(stream, {
-      headers: {
-        "Content-Type": "text/plain; charset=utf-8",
-        "Cache-Control": "no-cache",
-      },
-    });
+    return NextResponse.json({ content });
   } catch (err) {
     console.error("Pool analysis error:", (err as Error).message);
     return NextResponse.json(

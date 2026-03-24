@@ -6,16 +6,15 @@ import PoolCard from "./PoolCard";
 import ClaudiaCharacter from "./ClaudiaCharacter";
 import { useClaudiaMood } from "@/hooks/useClaudiaMood";
 
-const MAX_STREAM_BYTES = 4096;
-
 interface PoolDashboardProps {
   poolsState: PoolsState;
   sessionToken?: string | null;
 }
 
-function formatTotalTvl(tvl: number): string {
+function formatTvl(tvl: number): string {
   if (tvl >= 1_000_000_000) return `$${(tvl / 1_000_000_000).toFixed(2)}B`;
-  return `$${(tvl / 1_000_000).toFixed(0)}M`;
+  if (tvl >= 1_000_000) return `$${(tvl / 1_000_000).toFixed(1)}M`;
+  return `$${(tvl / 1_000).toFixed(0)}K`;
 }
 
 const CHAIN_OPTIONS: { value: ChainFilter; label: string }[] = [
@@ -34,6 +33,8 @@ export default function PoolDashboard({ poolsState, sessionToken }: PoolDashboar
   const { filteredPools, filters, setFilters, isLoading, error, refresh, isAnalyzing, setIsAnalyzing, hasHighApy, hasRiskyPools } = poolsState;
   const [analyzingPoolId, setAnalyzingPoolId] = useState<string | null>(null);
   const [claudiaMessage, setClaudiaMessage] = useState<string | undefined>(undefined);
+  const [analyzedPool, setAnalyzedPool] = useState<Pool | null>(null);
+  const [viewMode, setViewMode] = useState<"grid" | "list">("list");
 
   const claudiaMood = useClaudiaMood({
     walletConnected: true,
@@ -53,6 +54,7 @@ export default function PoolDashboard({ poolsState, sessionToken }: PoolDashboar
     }
 
     setAnalyzingPoolId(pool.id);
+    setAnalyzedPool(pool);
     setIsAnalyzing(true);
     setClaudiaMessage("");
 
@@ -66,35 +68,16 @@ export default function PoolDashboard({ poolsState, sessionToken }: PoolDashboar
         body: JSON.stringify({ pool }),
       });
 
+      const data = await res.json().catch(() => null);
+
       if (!res.ok) {
-        const data = await res.json().catch(() => null);
         setClaudiaMessage(
           data?.error || "I had thoughts on this one but they didn't survive the trip. Try clicking again."
         );
         return;
       }
 
-      const reader = res.body?.getReader();
-      if (!reader) {
-        setClaudiaMessage("I had thoughts on this one but they didn't survive the trip. Try clicking again.");
-        return;
-      }
-
-      const decoder = new TextDecoder();
-      let fullText = "";
-      let totalBytes = 0;
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        totalBytes += value.length;
-        if (totalBytes > MAX_STREAM_BYTES) break;
-        const chunk = decoder.decode(value, { stream: true });
-        fullText += chunk;
-        setClaudiaMessage(fullText);
-      }
-
-      reader.releaseLock();
+      setClaudiaMessage(data?.content || "Claudia had nothing to say. That's a first.");
     } catch {
       setClaudiaMessage("I had thoughts on this one but they didn't survive the trip. Try clicking again.");
     } finally {
@@ -137,18 +120,18 @@ export default function PoolDashboard({ poolsState, sessionToken }: PoolDashboar
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Summary bar */}
-        <div className="flex items-center gap-4 px-4 py-3 border-b border-white/5 flex-wrap">
+        <div className="flex items-center gap-5 px-5 py-3 border-b border-white/5 bg-surface/20">
           <span className="text-zinc-500 text-xs">
-            <span className="text-white font-bold">{filteredPools.length}</span> pools
+            <span className="text-white font-bold text-sm">{filteredPools.length}</span> pools
           </span>
           {highestApy && (
             <span className="text-zinc-500 text-xs">
-              Top: <span className="text-accent font-bold">{highestApy.apy}%</span>{" "}
-              <span className="text-zinc-400">{highestApy.protocol} {highestApy.symbol}</span>
+              Top: <span className="text-accent font-bold text-sm">{highestApy.apy}%</span>{" "}
+              <span className="text-zinc-400">{highestApy.protocol}</span>
             </span>
           )}
           <span className="text-zinc-500 text-xs">
-            TVL: <span className="text-white font-bold">{formatTotalTvl(totalTvl)}</span>
+            TVL: <span className="text-white font-bold text-sm">{formatTvl(totalTvl)}</span>
           </span>
           <button
             onClick={refresh}
@@ -160,8 +143,32 @@ export default function PoolDashboard({ poolsState, sessionToken }: PoolDashboar
         </div>
 
         {/* Filters */}
-        <div className="px-4 py-3 border-b border-white/5 space-y-2">
+        <div className="px-5 py-3 border-b border-white/5 space-y-2">
           <div className="flex items-center gap-2 flex-wrap">
+            {/* View Toggle */}
+            <div className="flex items-center bg-surface-light rounded-lg p-0.5">
+              <button
+                onClick={() => setViewMode("list")}
+                className={`p-1.5 rounded-md transition-all ${
+                  viewMode === "list" ? "bg-accent text-white shadow-sm" : "text-zinc-500 hover:text-zinc-300"
+                }`}
+                title="List View"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+              </button>
+              <button
+                onClick={() => setViewMode("grid")}
+                className={`p-1.5 rounded-md transition-all ${
+                  viewMode === "grid" ? "bg-accent text-white shadow-sm" : "text-zinc-500 hover:text-zinc-300"
+                }`}
+                title="Grid View"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+              </button>
+            </div>
+
+            <div className="w-px h-5 bg-white/10 mx-1" />
+
             {/* Chain filter */}
             {CHAIN_OPTIONS.map((opt) => (
               <button
@@ -193,6 +200,19 @@ export default function PoolDashboard({ poolsState, sessionToken }: PoolDashboar
                 {opt.label}
               </button>
             ))}
+
+            <div className="flex-1" />
+
+            {/* Search */}
+            <input
+              type="text"
+              value={filters.search}
+              onChange={(e) => setFilters({ search: e.target.value })}
+              placeholder="Search protocol or token..."
+              className="text-xs bg-surface border border-white/10 rounded-lg px-3 py-1.5
+                         text-white placeholder-zinc-600 outline-none focus:border-accent/30
+                         w-48 transition-colors"
+            />
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
@@ -214,22 +234,50 @@ export default function PoolDashboard({ poolsState, sessionToken }: PoolDashboar
                 {chip.label}
               </button>
             ))}
-
-            {/* Search */}
-            <input
-              type="text"
-              value={filters.search}
-              onChange={(e) => setFilters({ search: e.target.value })}
-              placeholder="Search protocol or token..."
-              className="ml-auto text-xs bg-surface border border-white/10 rounded-lg px-3 py-1.5
-                         text-white placeholder-zinc-600 outline-none focus:border-accent/30
-                         w-48 transition-colors"
-            />
           </div>
         </div>
 
-        {/* Pool grid */}
-        <div className="flex-1 overflow-y-auto p-4">
+        {/* Claudia's response panel */}
+        {(claudiaMessage || isAnalyzing) && (
+          <div className="mx-5 mt-3 bg-surface rounded-xl border border-accent/20 overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-2 border-b border-white/5 bg-accent/5">
+              <div className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${isAnalyzing ? "bg-accent animate-pulse" : "bg-accent"}`} />
+                <span className="text-xs font-heading font-bold text-accent">Claudia&apos;s Take</span>
+                {analyzedPool && (
+                  <span className="text-xs text-zinc-500">
+                    on <span className="text-zinc-300">{analyzedPool.protocol}</span>{" "}
+                    <span className="text-zinc-400">{analyzedPool.symbol}</span>{" "}
+                    <span className={`text-[10px] px-1 py-0.5 rounded ${
+                      analyzedPool.chain === "Base" ? "bg-blue-500/15 text-blue-400" : "bg-purple-500/15 text-purple-400"
+                    }`}>{analyzedPool.chain}</span>
+                  </span>
+                )}
+              </div>
+              {!isAnalyzing && (
+                <button
+                  onClick={() => { setClaudiaMessage(undefined); setAnalyzedPool(null); }}
+                  className="text-zinc-600 hover:text-zinc-400 text-xs transition-colors"
+                >
+                  dismiss
+                </button>
+              )}
+            </div>
+            <div className="px-4 py-3">
+              {isAnalyzing && !claudiaMessage ? (
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-3 w-3 border border-accent border-t-transparent" />
+                  <span className="text-xs text-zinc-500 italic">thinking about this one...</span>
+                </div>
+              ) : (
+                <p className="text-sm text-zinc-300 leading-relaxed">{claudiaMessage}</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Pool content */}
+        <div className="flex-1 overflow-y-auto">
           {isLoading ? (
             <div className="flex items-center justify-center py-20">
               <div className="animate-spin rounded-full h-8 w-8 border-2 border-accent border-t-transparent" />
@@ -238,8 +286,110 @@ export default function PoolDashboard({ poolsState, sessionToken }: PoolDashboar
             <div className="flex items-center justify-center py-20">
               <p className="text-zinc-500 text-sm">No pools match your filters.</p>
             </div>
+          ) : viewMode === "list" ? (
+            /* ──── LIST VIEW ──── */
+            <table className="w-full text-left text-xs">
+              <thead className="sticky top-0 z-10 bg-[#14141e] border-b border-white/5">
+                <tr className="text-zinc-500 text-[10px] uppercase tracking-wider">
+                  <th className="pl-5 pr-2 py-2.5 font-semibold w-8">#</th>
+                  <th className="px-2 py-2.5 font-semibold">Pool</th>
+                  <th className="px-2 py-2.5 font-semibold">Chain</th>
+                  <th className="px-2 py-2.5 text-right font-semibold">APY</th>
+                  <th className="px-2 py-2.5 text-right font-semibold hidden sm:table-cell">Base</th>
+                  <th className="px-2 py-2.5 text-right font-semibold hidden sm:table-cell">Reward</th>
+                  <th className="px-2 py-2.5 text-right font-semibold">TVL</th>
+                  <th className="px-2 py-2.5 font-semibold hidden md:table-cell">Tags</th>
+                  <th className="pl-2 pr-5 py-2.5 text-right font-semibold">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredPools.map((pool, i) => {
+                  const isActive = analyzingPoolId === pool.id;
+                  const riskBg = pool.outlierApy || pool.apy > 100
+                    ? "border-l-red-500/60"
+                    : pool.ilRisk || pool.apy >= 30
+                    ? "border-l-yellow-500/50"
+                    : "border-l-green-500/40";
+
+                  return (
+                    <tr
+                      key={pool.id}
+                      className={`border-b border-white/[0.03] hover:bg-white/[0.03] transition-colors border-l-2 ${riskBg} ${
+                        isActive ? "bg-accent/5" : i % 2 === 0 ? "bg-transparent" : "bg-white/[0.01]"
+                      }`}
+                    >
+                      <td className="pl-5 pr-2 py-2.5 text-zinc-600 tabular-nums">{i + 1}</td>
+                      <td className="px-2 py-2.5">
+                        <div className="min-w-0">
+                          <span className="font-bold text-white text-[13px]">{pool.protocol}</span>
+                          <div className="text-zinc-500 text-[10px] truncate max-w-[180px]">{pool.symbol}</div>
+                        </div>
+                      </td>
+                      <td className="px-2 py-2.5">
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${
+                          pool.chain === "Base" ? "bg-blue-500/10 text-blue-400" : "bg-purple-500/10 text-purple-400"
+                        }`}>
+                          {pool.chain}
+                        </span>
+                      </td>
+                      <td className="px-2 py-2.5 text-right">
+                        <span className={`font-heading font-bold text-sm tabular-nums ${
+                          pool.apy >= 50 ? "text-accent" : pool.apy >= 15 ? "text-coral" : "text-white"
+                        }`}>
+                          {pool.apy.toFixed(1)}%
+                        </span>
+                      </td>
+                      <td className="px-2 py-2.5 text-right text-zinc-400 tabular-nums hidden sm:table-cell">
+                        {pool.apyBase > 0 ? `${pool.apyBase.toFixed(1)}%` : "-"}
+                      </td>
+                      <td className="px-2 py-2.5 text-right tabular-nums hidden sm:table-cell">
+                        {pool.apyReward != null && pool.apyReward > 0 ? (
+                          <span className="text-accent/70">{pool.apyReward.toFixed(1)}%</span>
+                        ) : (
+                          <span className="text-zinc-600">-</span>
+                        )}
+                      </td>
+                      <td className="px-2 py-2.5 text-right text-zinc-300 tabular-nums font-medium">
+                        {formatTvl(pool.tvlUsd)}
+                      </td>
+                      <td className="px-2 py-2.5 hidden md:table-cell">
+                        <div className="flex flex-wrap gap-1">
+                          {pool.stablecoin && <span className="text-[8px] bg-green-500/10 text-green-400 px-1.5 py-0.5 rounded font-bold">STABLE</span>}
+                          {pool.ilRisk && <span className="text-[8px] bg-yellow-500/10 text-yellow-400 px-1.5 py-0.5 rounded font-bold">IL</span>}
+                          {pool.outlierApy && <span className="text-[8px] bg-red-500/10 text-red-400 px-1.5 py-0.5 rounded font-bold">OUTLIER</span>}
+                        </div>
+                      </td>
+                      <td className="pl-2 pr-5 py-2.5 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => handleAnalyze(pool)}
+                            disabled={isActive}
+                            className={`text-[10px] px-2.5 py-1 rounded-md transition-all font-medium ${
+                              isActive
+                                ? "bg-accent/20 text-accent animate-pulse"
+                                : "text-accent hover:bg-accent/15"
+                            }`}
+                          >
+                            {isActive ? "..." : "Ask"}
+                          </button>
+                          <a
+                            href={pool.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[10px] px-2 py-1 text-zinc-600 hover:text-zinc-300 rounded-md transition-colors"
+                          >
+                            Open
+                          </a>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            /* ──── GRID VIEW ──── */
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 p-4">
               {filteredPools.map((pool) => (
                 <PoolCard
                   key={pool.id}

@@ -94,7 +94,6 @@ export function usePools(): PoolsState {
         .filter(
           (p: any) =>
             (p.chain === "Base" || p.chain === "Ethereum") &&
-            p.status === "active" &&
             p.tvlUsd > 100_000 &&
             typeof p.apy === "number" &&
             p.apy > 0
@@ -170,7 +169,8 @@ export function usePools(): PoolsState {
       }
     });
 
-    return result;
+    // Cap at 100 to keep the page responsive (~3K pools otherwise)
+    return result.slice(0, 100);
   }, [pools, filters]);
 
   const hasHighApy = useMemo(() => filteredPools.some((p) => p.apy > 20), [filteredPools]);

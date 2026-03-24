@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Providers from "@/components/Providers";
+import FloatingClaudia from "@/components/FloatingClaudia";
 import "./globals.css";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +20,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="min-h-screen bg-bg font-body text-zinc-200 antialiased">
-        <Providers>{children}</Providers>
+        <Providers>
+          {children}
+          <FloatingClaudia />
+        </Providers>
       </body>
     </html>
   );
