@@ -1,13 +1,34 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { storeNonce } from "@/lib/nonce-store";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 /**
- * Returns a nonce/message for the client to sign.
- * The nonce is stored server-side and verified on use (single-use, 5min TTL).
+ * GET: Returns a SIWE-style message with nonce for the client to sign.
+ * POST: Verifies signature, consumes nonce, issues a session token.
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // Rate limit nonce generation to prevent nonce flooding
+  const ip = req.headers.get("cf-connecting-ip") || "unknown";
+  const rl = checkRateLimit(`nonce:${ip}`, 10, 60_000);
+  if (!rl.allowed) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
   const nonce = crypto.randomUUID();
   storeNonce(nonce);
-  const message = `Sign in to Claudia AI\n\nThis verifies you own this wallet. No gas, no transaction.\n\nNonce: ${nonce}`;
+
+  // Structured SIWE-like message with domain binding
+  const message = [
+    "Claudia AI wants you to sign in with your Ethereum account.",
+    "",
+    "Sign in to access Claudia AI. This verifies wallet ownership.",
+    "No gas fee, no transaction.",
+    "",
+    `URI: https://claudia.wtf`,
+    `Chain ID: 8453`,
+    `Nonce: ${nonce}`,
+    `Issued At: ${new Date().toISOString()}`,
+  ].join("\n");
+
   return NextResponse.json({ message, nonce });
 }

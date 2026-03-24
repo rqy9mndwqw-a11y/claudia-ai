@@ -120,16 +120,34 @@ export default function ChatInterface() {
     }
   }, [loading]);
 
-  // Sign session on first use
+  // Sign session on first use — get nonce, sign, verify, receive session token
   const ensureSession = useCallback(async (): Promise<{ signature: string; message: string } | null> => {
     if (session) return session;
 
     setSigningIn(true);
     try {
-      const res = await fetch("/api/session");
-      const { message } = await res.json();
+      // Step 1: Get nonce message
+      const nonceRes = await fetch("/api/session");
+      const { message } = await nonceRes.json();
+
+      // Step 2: Sign with wallet
       const signature = await signMessageAsync({ message });
-      const s = { signature, message };
+
+      // Step 3: Verify signature → get session token
+      const verifyRes = await fetch("/api/session/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address, signature, message }),
+      });
+
+      if (!verifyRes.ok) {
+        setSigningIn(false);
+        return null;
+      }
+
+      const { token } = await verifyRes.json();
+      // Store token as the session — used in Authorization header
+      const s = { signature: token, message };
       setSession(s);
       setSigningIn(false);
       return s;
@@ -137,7 +155,7 @@ export default function ChatInterface() {
       setSigningIn(false);
       return null;
     }
-  }, [session, signMessageAsync]);
+  }, [session, signMessageAsync, address]);
 
   const sendMessage = useCallback(
     async (text: string) => {
@@ -152,14 +170,19 @@ export default function ChatInterface() {
 
       try {
         const sess = await ensureSession();
+        if (!sess) {
+          setMessages([...updated, { role: "assistant", content: "Wallet verification failed. Disconnect and reconnect." }]);
+          return;
+        }
 
         const res = await fetch("/api/chat", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${sess.signature}`,
+          },
           body: JSON.stringify({
             messages: updated.map((m) => ({ role: m.role, content: m.content })),
-            address,
-            ...(sess && { signature: sess.signature, message: sess.message }),
           }),
         });
 

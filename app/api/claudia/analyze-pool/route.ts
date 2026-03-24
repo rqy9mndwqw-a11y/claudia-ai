@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { requireAuthAndBalance, rateLimit } from "@/lib/auth";
 
 const SYSTEM_PROMPT = `You are CLAUDIA, an AI with serious attitude who lives inside a DeFi dashboard.
 You are brutally honest, a little sarcastic, but genuinely knowledgeable about DeFi.
@@ -8,20 +8,25 @@ You speak in short punchy sentences. You use casual language.
 You are not a financial advisor and you say so exactly once if asked, never again.
 Keep responses under 60 words. Never use emojis. Never use hashtags.`;
 
+const MAX_STREAM_BYTES = 4096;
+
+/** Sanitize pool data to prevent prompt injection. */
+function sanitizePoolField(value: unknown): string {
+  if (value == null) return "";
+  return String(value)
+    .replace(/[^\w\s.%$,/-]/g, "")
+    .slice(0, 100);
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const ip =
-      req.headers.get("cf-connecting-ip") ||
-      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      "unknown";
+    // Rate limit
+    const rlError = rateLimit(req, "pool", 20, 60_000);
+    if (rlError) return rlError;
 
-    const rl = checkRateLimit(ip, 30, 60_000);
-    if (!rl.allowed) {
-      return NextResponse.json(
-        { error: "Chill. Too many requests." },
-        { status: 429 }
-      );
-    }
+    // Auth + token gate (10K CLAUDIA)
+    const session = await requireAuthAndBalance(req);
+    if (session instanceof NextResponse) return session;
 
     const body = await req.json();
     const { pool } = body;
@@ -35,18 +40,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Service temporarily unavailable" }, { status: 503 });
     }
 
+    // Build pool description from sanitized fields
     const poolDescription = [
-      `Protocol: ${pool.protocol}`,
-      `Chain: ${pool.chain}`,
-      `Token: ${pool.symbol}`,
-      `APY: ${pool.apy}%`,
-      pool.apyBase > 0 ? `Base APY: ${pool.apyBase}%` : null,
-      pool.apyReward ? `Reward APY: ${pool.apyReward}%` : null,
-      `TVL: $${(pool.tvlUsd / 1_000_000).toFixed(1)}M`,
+      `Protocol: ${sanitizePoolField(pool.protocol)}`,
+      `Chain: ${sanitizePoolField(pool.chain)}`,
+      `Token: ${sanitizePoolField(pool.symbol)}`,
+      `APY: ${sanitizePoolField(pool.apy)}%`,
+      pool.apyBase > 0 ? `Base APY: ${sanitizePoolField(pool.apyBase)}%` : null,
+      pool.apyReward ? `Reward APY: ${sanitizePoolField(pool.apyReward)}%` : null,
+      `TVL: $${sanitizePoolField(pool.tvlUsd ? (pool.tvlUsd / 1_000_000).toFixed(1) : "0")}M`,
       `IL Risk: ${pool.ilRisk ? "yes" : "no"}`,
       `Outlier APY: ${pool.outlierApy ? "yes" : "no"}`,
       `Stablecoin: ${pool.stablecoin ? "yes" : "no"}`,
-      pool.rewardTokens?.length > 0 ? `Reward tokens: ${pool.rewardTokens.join(", ")}` : null,
     ]
       .filter(Boolean)
       .join(". ");
@@ -76,10 +81,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Stream the response back as SSE
+    // Stream with byte limit
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
     const reader = groqRes.body.getReader();
+    let totalBytes = 0;
 
     const stream = new ReadableStream({
       async start(controller) {
@@ -98,15 +104,21 @@ export async function POST(req: NextRequest) {
                 const parsed = JSON.parse(data);
                 const content = parsed.choices?.[0]?.delta?.content;
                 if (content) {
-                  controller.enqueue(encoder.encode(content));
+                  const encoded = encoder.encode(content);
+                  totalBytes += encoded.length;
+                  if (totalBytes > MAX_STREAM_BYTES) break;
+                  controller.enqueue(encoded);
                 }
               } catch {
                 // Skip malformed chunks
               }
             }
+
+            if (totalBytes > MAX_STREAM_BYTES) break;
           }
         } finally {
           controller.close();
+          reader.releaseLock();
         }
       },
     });
@@ -115,7 +127,6 @@ export async function POST(req: NextRequest) {
       headers: {
         "Content-Type": "text/plain; charset=utf-8",
         "Cache-Control": "no-cache",
-        "Transfer-Encoding": "chunked",
       },
     });
   } catch (err) {

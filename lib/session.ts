@@ -2,9 +2,11 @@ import { verifyMessage } from "viem";
 import { consumeNonce } from "./nonce-store";
 
 /**
- * Verify that a wallet address actually signed the given message,
- * and that the nonce in the message was issued by us and hasn't been used.
- * The nonce is consumed (deleted) immediately — replay is impossible.
+ * Verify a SIWE signature and consume the nonce.
+ *
+ * Order: validate format → verify signature → consume nonce.
+ * Nonce is consumed AFTER signature verification so a failed signature
+ * doesn't burn a legitimate user's nonce.
  */
 export async function verifySession(
   address: string,
@@ -12,29 +14,33 @@ export async function verifySession(
   message: string
 ): Promise<boolean> {
   try {
+    // Validate input formats
     if (!address || !signature || !message) return false;
     if (!/^0x[a-fA-F0-9]{40}$/.test(address)) return false;
-    if (!/^0x[a-fA-F0-9]+$/.test(signature)) return false;
+    // Valid ETH signatures are 0x + 128 hex chars (65 bytes)
+    if (!/^0x[a-fA-F0-9]{128,130}$/.test(signature)) return false;
 
-    // Extract nonce from the signed message
-    const nonceMatch = message.match(/Nonce:\s*([a-f0-9-]+)/i);
+    // Extract and validate nonce exists in message
+    const nonceMatch = message.match(/Nonce:\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
     if (!nonceMatch) return false;
-
     const nonce = nonceMatch[1];
 
-    // Consume the nonce BEFORE verifying the signature.
-    // Even if signature check fails, the nonce is burned — no retry with
-    // the same nonce possible.
-    if (!consumeNonce(nonce)) return false;
+    // Validate domain binding
+    if (!message.includes("URI: https://claudia.wtf")) return false;
+    if (!message.includes("Chain ID: 8453")) return false;
 
-    // Verify the signature matches the claimed address
+    // Verify the signature matches the claimed address FIRST
     const valid = await verifyMessage({
       address: address as `0x${string}`,
       message,
       signature: signature as `0x${string}`,
     });
+    if (!valid) return false;
 
-    return valid;
+    // Only NOW consume the nonce — signature is valid, burn it
+    if (!consumeNonce(nonce)) return false;
+
+    return true;
   } catch {
     return false;
   }

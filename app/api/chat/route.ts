@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyTokenBalance } from "@/lib/verify-token";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { requireAuthAndBalance, rateLimit } from "@/lib/auth";
 import { getYields } from "@/lib/yields-cache";
-import { verifySession } from "@/lib/session";
 
 const SYSTEM_PROMPT = `You are NOT an assistant. You are Claudia.
 
@@ -48,56 +46,19 @@ const MAX_MESSAGES = 20;
 
 export async function POST(req: NextRequest) {
   try {
-    const ip =
-      req.headers.get("cf-connecting-ip") ||
-      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      "unknown";
+    // Rate limit
+    const rlError = rateLimit(req, "chat", 20, 60_000);
+    if (rlError) return rlError;
 
-    const rl = checkRateLimit(ip, 20, 60_000);
-    if (!rl.allowed) {
-      return NextResponse.json(
-        { error: "Slow down. Too many requests." },
-        { status: 429, headers: { "Retry-After": String(Math.ceil((rl.resetAt - Date.now()) / 1000)) } }
-      );
-    }
-
-    const contentLength = req.headers.get("content-length");
-    if (contentLength && parseInt(contentLength) > 50_000) {
-      return NextResponse.json({ error: "Request too large" }, { status: 413 });
-    }
+    // Auth — address comes from verified session token, not request body
+    const session = await requireAuthAndBalance(req);
+    if (session instanceof NextResponse) return session;
 
     const body = await req.json();
-    const { messages, address, signature, message: signedMessage } = body;
+    const { messages } = body;
 
     if (!messages || !Array.isArray(messages)) {
       return NextResponse.json({ error: "Messages array required" }, { status: 400 });
-    }
-    if (!address || typeof address !== "string") {
-      return NextResponse.json({ error: "Wallet address required" }, { status: 400 });
-    }
-
-    // --- Verify wallet ownership via signature (SIWE) ---
-    if (signature && signedMessage) {
-      const valid = await verifySession(address, signature, signedMessage);
-      if (!valid) {
-        return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
-      }
-    }
-
-    // --- Server-side token gate — DENY on failure, never fall through ---
-    try {
-      const { authorized, balance } = await verifyTokenBalance(address);
-      if (!authorized) {
-        return NextResponse.json(
-          { error: `Insufficient $CLAUDIA balance. You have ${balance.toLocaleString()}, need 10,000.` },
-          { status: 403 }
-        );
-      }
-    } catch (err) {
-      return NextResponse.json(
-        { error: `Unable to verify token balance: ${(err as Error).message?.slice(0, 100)}` },
-        { status: 503 }
-      );
     }
 
     const validRoles = new Set(["user", "assistant"]);
@@ -147,7 +108,7 @@ export async function POST(req: NextRequest) {
     const completion = await groqRes.json();
     const reply = completion.choices?.[0]?.message?.content || "I got nothing. Try again.";
 
-    return NextResponse.json({ reply, remaining: rl.remaining });
+    return NextResponse.json({ reply });
   } catch (err) {
     console.error("Chat error:", (err as Error).message);
     return NextResponse.json({ error: "Something went wrong. Try again in a moment." }, { status: 500 });

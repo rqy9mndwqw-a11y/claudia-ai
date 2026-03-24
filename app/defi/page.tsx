@@ -1,17 +1,19 @@
 "use client";
 
-import { useAccount } from "wagmi";
+import { useAccount, useSignMessage } from "wagmi";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState, useCallback } from "react";
 import WalletConnect from "@/components/WalletConnect";
 import TokenGate from "@/components/TokenGate";
 import PoolDashboard from "@/components/PoolDashboard";
 import { usePools } from "@/hooks/usePools";
 
 export default function DefiPage() {
-  const { isConnected } = useAccount();
+  const { isConnected, address } = useAccount();
+  const { signMessageAsync } = useSignMessage();
   const router = useRouter();
   const poolsState = usePools();
+  const [sessionToken, setSessionToken] = useState<string | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -21,6 +23,33 @@ export default function DefiPage() {
     }, 2000);
     return () => clearTimeout(timer);
   }, [isConnected, router]);
+
+  // Auto-authenticate when wallet connects
+  const authenticate = useCallback(async () => {
+    if (!address || sessionToken) return;
+    try {
+      const nonceRes = await fetch("/api/session");
+      const { message } = await nonceRes.json();
+      const signature = await signMessageAsync({ message });
+      const verifyRes = await fetch("/api/session/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address, signature, message }),
+      });
+      if (verifyRes.ok) {
+        const { token } = await verifyRes.json();
+        setSessionToken(token);
+      }
+    } catch {
+      // Auth failed — pool analysis won't work but browsing still will
+    }
+  }, [address, sessionToken, signMessageAsync]);
+
+  useEffect(() => {
+    if (isConnected && address && !sessionToken) {
+      authenticate();
+    }
+  }, [isConnected, address, sessionToken, authenticate]);
 
   return (
     <main className="h-screen flex flex-col bg-bg">
@@ -44,7 +73,7 @@ export default function DefiPage() {
         <WalletConnect />
       </header>
       <TokenGate featureName="DeFi Dashboard">
-        <PoolDashboard poolsState={poolsState} />
+        <PoolDashboard poolsState={poolsState} sessionToken={sessionToken} />
       </TokenGate>
     </main>
   );

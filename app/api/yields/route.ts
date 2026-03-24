@@ -1,7 +1,12 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getYields } from "@/lib/yields-cache";
+import { rateLimit } from "@/lib/auth";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // Rate limit — public endpoint but prevent scraping abuse
+  const rlError = rateLimit(req, "yields", 30, 60_000);
+  if (rlError) return rlError;
+
   try {
     const pools = await getYields();
     return NextResponse.json({ pools, count: pools.length });

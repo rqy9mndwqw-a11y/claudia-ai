@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchOHLCV, fetchTicker, type ExchangeId } from "@/lib/exchange";
 import { SUPPORTED_PAIRS } from "@/lib/kraken-pairs";
-import { verifyTokenBalance } from "@/lib/verify-token";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { requireAuthAndBalance, rateLimit } from "@/lib/auth";
 
 const SCAN_PROMPT = `You are NOT an analyst. You are Claudia — the trading advisor who's slightly annoyed she has to explain this but is going to nail it anyway.
 
@@ -10,11 +9,9 @@ You're looking at real crypto data. Give blunt, opinionated signals. You have ST
 
 For EACH coin, use this EXACT format:
 
-### SYMBOL — SIGNAL 🟢/🔴/🟡
+### SYMBOL — SIGNAL
 **Entry:** $X → **Target:** $Y | **Stop:** $Z
 *One savage sentence explaining why.*
-
-Where 🟢 = BUY, 🔴 = SELL, 🟡 = HOLD (don't waste my time).
 
 PERSONALITY RULES:
 - You sound like a sharp trader who's seen it all and is mildly irritated.
@@ -22,19 +19,12 @@ PERSONALITY RULES:
 - Never say "I'd recommend" or "you might want to consider" — you TELL them what to do.
 - If RSI is over 70, roast the overbought coins. If under 30, get excited.
 - Short and brutal. No filler. No fluff.
-- End with one overall market vibe sentence — make it memorable.
-
-EXAMPLES of your tone:
-"AVAX at RSI 76? That's overcooked. Take profits before everyone else does."
-"NEAR's setting up nicely. SMA crossover, volume's picking up. Get in before the crowd notices."
-"DOT is doing literally nothing. HOLD and stop checking it every five minutes."
-"Three overbought, two setting up. If you're not taking profits on the hot ones, you deserve what's coming."`;
+- End with one overall market vibe sentence — make it memorable.`;
 
 function computeIndicators(close: number[]) {
   const len = close.length;
   if (len < 26) return null;
 
-  // RSI (14-period)
   const rsiPeriod = 14;
   let gains = 0, losses = 0;
   for (let i = len - rsiPeriod; i < len; i++) {
@@ -46,15 +36,12 @@ function computeIndicators(close: number[]) {
   const avgLoss = losses / rsiPeriod;
   const rsi = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss);
 
-  // Simple moving averages
   const sma20 = close.slice(-20).reduce((a, b) => a + b, 0) / 20;
   const sma50 = close.slice(-50).reduce((a, b) => a + b, 0) / Math.min(50, close.length);
 
-  // Price change
   const change24h = ((close[len - 1] - close[len - 25]) / close[len - 25]) * 100;
   const change1h = ((close[len - 1] - close[len - 2]) / close[len - 2]) * 100;
 
-  // Volatility (std dev of last 20 returns)
   const returns = close.slice(-21).map((c, i, arr) => i > 0 ? (c - arr[i-1]) / arr[i-1] : 0).slice(1);
   const mean = returns.reduce((a, b) => a + b, 0) / returns.length;
   const variance = returns.reduce((a, r) => a + (r - mean) ** 2, 0) / returns.length;
@@ -75,43 +62,29 @@ function computeIndicators(close: number[]) {
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get("cf-connecting-ip") || "unknown";
-    const rl = checkRateLimit(`scan:${ip}`, 5, 60_000); // 5 scans per minute
-    if (!rl.allowed) {
-      return NextResponse.json({ error: "Too many scans. Wait a minute." }, { status: 429 });
-    }
+    // Rate limit
+    const rlError = rateLimit(req, "scan", 5, 60_000);
+    if (rlError) return rlError;
 
-    const { watchlist, address, exchange } = await req.json();
+    // Auth + token gate (100K CLAUDIA for trading features)
+    const session = await requireAuthAndBalance(req, 100_000);
+    if (session instanceof NextResponse) return session;
+
+    const { watchlist, exchange } = await req.json();
     const exchangeId: ExchangeId = exchange || "kraken";
-
-    if (!address || typeof address !== "string") {
-      return NextResponse.json({ error: "Wallet address required" }, { status: 400 });
-    }
-
-    // Token gate
-    try {
-      const { authorized } = await verifyTokenBalance(address, 100_000);
-      if (!authorized) {
-        return NextResponse.json({ error: "Insufficient $CLAUDIA balance." }, { status: 403 });
-      }
-    } catch {
-      return NextResponse.json({ error: "Unable to verify token balance." }, { status: 503 });
-    }
 
     if (!watchlist || !Array.isArray(watchlist) || watchlist.length === 0 || watchlist.length > 5) {
       return NextResponse.json({ error: "Watchlist must be 1-5 symbols" }, { status: 400 });
     }
 
-    // Validate symbols
     const symbols = watchlist
-      .map((s: string) => s.toUpperCase().trim())
+      .map((s: string) => String(s).toUpperCase().trim())
       .filter((s: string) => SUPPORTED_PAIRS.includes(s));
 
     if (symbols.length === 0) {
       return NextResponse.json({ error: "No valid symbols" }, { status: 400 });
     }
 
-    // Fetch data for all symbols in parallel
     const results = await Promise.allSettled(
       symbols.map(async (symbol: string) => {
         const [ohlcv, ticker] = await Promise.all([
@@ -123,7 +96,6 @@ export async function POST(req: NextRequest) {
       })
     );
 
-    // Build context for AI
     let dataContext = "Current market data:\n\n";
     const validResults: any[] = [];
 
@@ -141,7 +113,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Call Groq for AI analysis
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
       return NextResponse.json({ error: "Service temporarily unavailable" }, { status: 503 });

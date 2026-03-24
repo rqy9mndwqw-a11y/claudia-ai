@@ -6,8 +6,11 @@ import PoolCard from "./PoolCard";
 import ClaudiaCharacter from "./ClaudiaCharacter";
 import { useClaudiaMood } from "@/hooks/useClaudiaMood";
 
+const MAX_STREAM_BYTES = 4096;
+
 interface PoolDashboardProps {
   poolsState: PoolsState;
+  sessionToken?: string | null;
 }
 
 function formatTotalTvl(tvl: number): string {
@@ -27,7 +30,7 @@ const SORT_OPTIONS: { value: SortBy; label: string }[] = [
   { value: "apyBase", label: "Base APY" },
 ];
 
-export default function PoolDashboard({ poolsState }: PoolDashboardProps) {
+export default function PoolDashboard({ poolsState, sessionToken }: PoolDashboardProps) {
   const { filteredPools, filters, setFilters, isLoading, error, refresh, isAnalyzing, setIsAnalyzing, hasHighApy, hasRiskyPools } = poolsState;
   const [analyzingPoolId, setAnalyzingPoolId] = useState<string | null>(null);
   const [claudiaMessage, setClaudiaMessage] = useState<string | undefined>(undefined);
@@ -44,6 +47,11 @@ export default function PoolDashboard({ poolsState }: PoolDashboardProps) {
   });
 
   const handleAnalyze = useCallback(async (pool: Pool) => {
+    if (!sessionToken) {
+      setClaudiaMessage("Connect your wallet first.");
+      return;
+    }
+
     setAnalyzingPoolId(pool.id);
     setIsAnalyzing(true);
     setClaudiaMessage("");
@@ -51,7 +59,10 @@ export default function PoolDashboard({ poolsState }: PoolDashboardProps) {
     try {
       const res = await fetch("/api/claudia/analyze-pool", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${sessionToken}`,
+        },
         body: JSON.stringify({ pool }),
       });
 
@@ -63,7 +74,6 @@ export default function PoolDashboard({ poolsState }: PoolDashboardProps) {
         return;
       }
 
-      // Stream the response
       const reader = res.body?.getReader();
       if (!reader) {
         setClaudiaMessage("I had thoughts on this one but they didn't survive the trip. Try clicking again.");
@@ -72,21 +82,26 @@ export default function PoolDashboard({ poolsState }: PoolDashboardProps) {
 
       const decoder = new TextDecoder();
       let fullText = "";
+      let totalBytes = 0;
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
+        totalBytes += value.length;
+        if (totalBytes > MAX_STREAM_BYTES) break;
         const chunk = decoder.decode(value, { stream: true });
         fullText += chunk;
         setClaudiaMessage(fullText);
       }
+
+      reader.releaseLock();
     } catch {
       setClaudiaMessage("I had thoughts on this one but they didn't survive the trip. Try clicking again.");
     } finally {
       setIsAnalyzing(false);
       setAnalyzingPoolId(null);
     }
-  }, [setIsAnalyzing]);
+  }, [setIsAnalyzing, sessionToken]);
 
   // Summary stats
   const totalTvl = filteredPools.reduce((sum, p) => sum + p.tvlUsd, 0);
