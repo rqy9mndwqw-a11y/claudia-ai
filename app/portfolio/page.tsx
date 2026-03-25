@@ -5,14 +5,14 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
 import WalletConnect from "@/components/WalletConnect";
 import TokenGate from "@/components/TokenGate";
-import PoolDashboard from "@/components/PoolDashboard";
-import { usePools } from "@/hooks/usePools";
+import PortfolioOverview from "@/components/PortfolioOverview";
+import { usePortfolio } from "@/hooks/usePortfolio";
 
-export default function DefiPage() {
+export default function PortfolioPage() {
   const { isConnected, address } = useAccount();
   const { signMessageAsync } = useSignMessage();
   const router = useRouter();
-  const poolsState = usePools();
+  const portfolio = usePortfolio(address);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
 
   useEffect(() => {
@@ -24,7 +24,6 @@ export default function DefiPage() {
     return () => clearTimeout(timer);
   }, [isConnected, router]);
 
-  // Auto-authenticate when wallet connects
   const authenticate = useCallback(async () => {
     if (!address || sessionToken) return;
     try {
@@ -41,7 +40,7 @@ export default function DefiPage() {
         setSessionToken(token);
       }
     } catch {
-      // Auth failed — pool analysis won't work but browsing still will
+      // Auth failed — portfolio viewing still works, just no Claudia check
     }
   }, [address, sessionToken, signMessageAsync]);
 
@@ -62,10 +61,10 @@ export default function DefiPage() {
             <a href="/chat" className="text-zinc-500 hover:text-white text-xs px-3 py-1.5 rounded-lg transition-colors">
               Chat
             </a>
-            <a href="/defi" className="text-white text-xs px-3 py-1.5 rounded-lg bg-surface-light transition-colors">
+            <a href="/defi" className="text-zinc-500 hover:text-white text-xs px-3 py-1.5 rounded-lg transition-colors">
               DeFi
             </a>
-            <a href="/portfolio" className="text-zinc-500 hover:text-white text-xs px-3 py-1.5 rounded-lg transition-colors">
+            <a href="/portfolio" className="text-white text-xs px-3 py-1.5 rounded-lg bg-surface-light transition-colors">
               Portfolio
             </a>
             <a href="/trade" className="text-zinc-500 hover:text-white text-xs px-3 py-1.5 rounded-lg transition-colors">
@@ -75,8 +74,15 @@ export default function DefiPage() {
         </div>
         <WalletConnect />
       </header>
-      <TokenGate featureName="DeFi Dashboard">
-        <PoolDashboard poolsState={poolsState} sessionToken={sessionToken} />
+      <TokenGate featureName="Portfolio Tracker">
+        <PortfolioOverview
+          positions={portfolio.positions}
+          totalValue={portfolio.totalValue}
+          isLoading={portfolio.isLoading}
+          error={portfolio.error}
+          refresh={portfolio.refresh}
+          sessionToken={sessionToken}
+        />
       </TokenGate>
     </main>
   );

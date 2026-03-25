@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 
+export type RiskLevel = "safe" | "moderate" | "risky" | "trash";
+
 export interface Pool {
   id: string;
   protocol: string;
@@ -16,10 +18,18 @@ export interface Pool {
   outlierApy: boolean;
   stablecoin: boolean;
   url: string;
+  // Enhanced fields (populated by useRiskScores)
+  riskScore?: RiskLevel;
+  riskReasoning?: string;
+  protocolAge?: number;
+  audited?: boolean;
+  claudiaPick?: boolean;
 }
 
 export type ChainFilter = "all" | "Base" | "Ethereum";
 export type SortBy = "apy" | "tvl" | "apyBase";
+
+export type RiskFilter = "all" | "safe" | "moderate" | "risky" | "picks";
 
 export interface PoolFilters {
   chain: ChainFilter;
@@ -28,6 +38,7 @@ export interface PoolFilters {
   hideOutliers: boolean;
   hideIlRisk: boolean;
   search: string;
+  riskLevel: RiskFilter;
 }
 
 export interface PoolsState {
@@ -76,6 +87,7 @@ export function usePools(): PoolsState {
     hideOutliers: true,
     hideIlRisk: false,
     search: "",
+    riskLevel: "all",
   });
 
   const setFilters = useCallback((update: Partial<PoolFilters>) => {
@@ -153,6 +165,13 @@ export function usePools(): PoolsState {
           p.protocol.toLowerCase().includes(q) ||
           p.symbol.toLowerCase().includes(q)
       );
+    }
+
+    // Risk level filter
+    if (filters.riskLevel === "picks") {
+      result = result.filter((p) => p.claudiaPick);
+    } else if (filters.riskLevel !== "all") {
+      result = result.filter((p) => p.riskScore === filters.riskLevel);
     }
 
     // Sort

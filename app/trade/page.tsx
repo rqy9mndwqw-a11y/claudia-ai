@@ -34,6 +34,9 @@ export default function TradePage() {
             <a href="/defi" className="text-zinc-500 hover:text-white text-xs px-3 py-1.5 rounded-lg transition-colors">
               DeFi
             </a>
+            <a href="/portfolio" className="text-zinc-500 hover:text-white text-xs px-3 py-1.5 rounded-lg transition-colors">
+              Portfolio
+            </a>
             <a href="/trade" className="text-white text-xs px-3 py-1.5 rounded-lg bg-surface-light transition-colors">
               Trade
             </a>

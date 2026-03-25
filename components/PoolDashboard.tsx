@@ -1,10 +1,15 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import type { Pool, ChainFilter, SortBy, PoolsState } from "@/hooks/usePools";
+import { useState, useCallback, useMemo } from "react";
+import type { Pool, ChainFilter, SortBy, RiskFilter, PoolsState } from "@/hooks/usePools";
+import { useRiskScores } from "@/hooks/useRiskScores";
+import { getProtocolMeta, getProtocolAge } from "@/lib/protocol-registry";
 import PoolCard from "./PoolCard";
+import ComparisonPanel from "./ComparisonPanel";
+import DepositWizard from "./DepositWizard";
 import ClaudiaCharacter from "./ClaudiaCharacter";
 import { useClaudiaMood } from "@/hooks/useClaudiaMood";
+import { supportsDeposit } from "@/lib/defi-adapters";
 
 interface PoolDashboardProps {
   poolsState: PoolsState;
@@ -35,6 +40,28 @@ export default function PoolDashboard({ poolsState, sessionToken }: PoolDashboar
   const [claudiaMessage, setClaudiaMessage] = useState<string | undefined>(undefined);
   const [analyzedPool, setAnalyzedPool] = useState<Pool | null>(null);
   const [viewMode, setViewMode] = useState<"grid" | "list">("list");
+  const [showComparison, setShowComparison] = useState(false);
+  const [depositPool, setDepositPool] = useState<Pool | null>(null);
+
+  // Risk scores
+  const { scores: riskScores, isLoading: riskLoading } = useRiskScores(poolsState.pools, sessionToken);
+
+  // Enrich pools with risk data + protocol metadata
+  const enrichedPools = useMemo(() => {
+    return filteredPools.map((pool) => {
+      const score = riskScores[pool.id];
+      const meta = getProtocolMeta(pool.protocol);
+      const age = getProtocolAge(pool.protocol);
+      return {
+        ...pool,
+        riskScore: score?.risk,
+        riskReasoning: score?.reasoning,
+        claudiaPick: score?.claudiaPick,
+        protocolAge: age ?? undefined,
+        audited: meta?.audited,
+      };
+    });
+  }, [filteredPools, riskScores]);
 
   const claudiaMood = useClaudiaMood({
     walletConnected: true,
@@ -86,9 +113,10 @@ export default function PoolDashboard({ poolsState, sessionToken }: PoolDashboar
     }
   }, [setIsAnalyzing, sessionToken]);
 
-  // Summary stats
-  const totalTvl = filteredPools.reduce((sum, p) => sum + p.tvlUsd, 0);
-  const highestApy = filteredPools.length > 0 ? filteredPools.reduce((max, p) => (p.apy > max.apy ? p : max), filteredPools[0]) : null;
+  // Summary stats (use enrichedPools which has risk filters applied)
+  const displayPools = enrichedPools;
+  const totalTvl = displayPools.reduce((sum, p) => sum + p.tvlUsd, 0);
+  const highestApy = displayPools.length > 0 ? displayPools.reduce((max, p) => (p.apy > max.apy ? p : max), displayPools[0]) : null;
 
   if (error) {
     return (
@@ -122,7 +150,7 @@ export default function PoolDashboard({ poolsState, sessionToken }: PoolDashboar
         {/* Summary bar */}
         <div className="flex items-center gap-5 px-5 py-3 border-b border-white/5 bg-surface/20">
           <span className="text-zinc-500 text-xs">
-            <span className="text-white font-bold text-sm">{filteredPools.length}</span> pools
+            <span className="text-white font-bold text-sm">{displayPools.length}</span> pools
           </span>
           {highestApy && (
             <span className="text-zinc-500 text-xs">
@@ -133,13 +161,22 @@ export default function PoolDashboard({ poolsState, sessionToken }: PoolDashboar
           <span className="text-zinc-500 text-xs">
             TVL: <span className="text-white font-bold text-sm">{formatTvl(totalTvl)}</span>
           </span>
-          <button
-            onClick={refresh}
-            disabled={isLoading}
-            className="ml-auto text-xs text-zinc-500 hover:text-white transition-colors disabled:opacity-30"
-          >
-            {isLoading ? "Loading..." : "Refresh"}
-          </button>
+          <div className="ml-auto flex items-center gap-3">
+            <button
+              onClick={() => setShowComparison(true)}
+              className="text-xs font-bold text-accent hover:text-white bg-accent/10 hover:bg-accent
+                         px-3 py-1.5 rounded-lg transition-all"
+            >
+              Compare Yields
+            </button>
+            <button
+              onClick={refresh}
+              disabled={isLoading}
+              className="text-xs text-zinc-500 hover:text-white transition-colors disabled:opacity-30"
+            >
+              {isLoading ? "Loading..." : "Refresh"}
+            </button>
+          </div>
         </div>
 
         {/* Filters */}
@@ -234,6 +271,51 @@ export default function PoolDashboard({ poolsState, sessionToken }: PoolDashboar
                 {chip.label}
               </button>
             ))}
+
+            {Object.keys(riskScores).length > 0 && (
+              <>
+                <div className="w-px h-4 bg-white/10 mx-1" />
+
+                {/* Risk level filters */}
+                {([
+                  { value: "all" as RiskFilter, label: "All Risk" },
+                  { value: "safe" as RiskFilter, label: "Safe" },
+                  { value: "moderate" as RiskFilter, label: "Moderate" },
+                  { value: "risky" as RiskFilter, label: "Risky" },
+                ]).map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setFilters({ riskLevel: opt.value })}
+                    className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${
+                      filters.riskLevel === opt.value
+                        ? opt.value === "safe" ? "border-green-500/40 bg-green-500/10 text-green-400"
+                        : opt.value === "moderate" ? "border-yellow-500/40 bg-yellow-500/10 text-yellow-400"
+                        : opt.value === "risky" ? "border-red-500/40 bg-red-500/10 text-red-400"
+                        : "border-accent/40 bg-accent/10 text-accent"
+                        : "border-white/10 text-zinc-500 hover:text-zinc-300"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+
+                {/* Claudia's Picks */}
+                <button
+                  onClick={() => setFilters({ riskLevel: filters.riskLevel === "picks" ? "all" : "picks" })}
+                  className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors font-bold ${
+                    filters.riskLevel === "picks"
+                      ? "border-accent/60 bg-accent/20 text-accent"
+                      : "border-accent/20 text-accent/60 hover:text-accent"
+                  }`}
+                >
+                  Claudia&apos;s Picks
+                </button>
+              </>
+            )}
+
+            {riskLoading && (
+              <span className="text-[10px] text-zinc-600 italic ml-1">scoring pools...</span>
+            )}
           </div>
         </div>
 
@@ -282,7 +364,7 @@ export default function PoolDashboard({ poolsState, sessionToken }: PoolDashboar
             <div className="flex items-center justify-center py-20">
               <div className="animate-spin rounded-full h-8 w-8 border-2 border-accent border-t-transparent" />
             </div>
-          ) : filteredPools.length === 0 ? (
+          ) : displayPools.length === 0 ? (
             <div className="flex items-center justify-center py-20">
               <p className="text-zinc-500 text-sm">No pools match your filters.</p>
             </div>
@@ -303,12 +385,14 @@ export default function PoolDashboard({ poolsState, sessionToken }: PoolDashboar
                 </tr>
               </thead>
               <tbody>
-                {filteredPools.map((pool, i) => {
+                {displayPools.map((pool, i) => {
                   const isActive = analyzingPoolId === pool.id;
-                  const riskBg = pool.outlierApy || pool.apy > 100
-                    ? "border-l-red-500/60"
-                    : pool.ilRisk || pool.apy >= 30
-                    ? "border-l-yellow-500/50"
+                  const riskBg = pool.riskScore === "trash" ? "border-l-red-500/60"
+                    : pool.riskScore === "risky" ? "border-l-orange-500/50"
+                    : pool.riskScore === "moderate" ? "border-l-yellow-500/50"
+                    : pool.riskScore === "safe" ? "border-l-green-500/40"
+                    : pool.outlierApy || pool.apy > 100 ? "border-l-red-500/60"
+                    : pool.ilRisk || pool.apy >= 30 ? "border-l-yellow-500/50"
                     : "border-l-green-500/40";
 
                   return (
@@ -354,6 +438,22 @@ export default function PoolDashboard({ poolsState, sessionToken }: PoolDashboar
                       </td>
                       <td className="px-2 py-2.5 hidden md:table-cell">
                         <div className="flex flex-wrap gap-1">
+                          {pool.claudiaPick && (
+                            <span className="text-[8px] bg-accent/15 text-accent px-1.5 py-0.5 rounded font-bold">PICK</span>
+                          )}
+                          {pool.riskScore && (
+                            <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold ${
+                              pool.riskScore === "safe" ? "bg-green-500/10 text-green-400"
+                              : pool.riskScore === "moderate" ? "bg-yellow-500/10 text-yellow-400"
+                              : pool.riskScore === "risky" ? "bg-orange-500/10 text-orange-400"
+                              : "bg-red-500/10 text-red-400"
+                            }`}>
+                              {pool.riskScore.toUpperCase()}
+                            </span>
+                          )}
+                          {pool.audited && (
+                            <span className="text-[8px] bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded font-bold" title="Audited protocol">AUDIT</span>
+                          )}
                           {pool.stablecoin && <span className="text-[8px] bg-green-500/10 text-green-400 px-1.5 py-0.5 rounded font-bold">STABLE</span>}
                           {pool.ilRisk && <span className="text-[8px] bg-yellow-500/10 text-yellow-400 px-1.5 py-0.5 rounded font-bold">IL</span>}
                           {pool.outlierApy && <span className="text-[8px] bg-red-500/10 text-red-400 px-1.5 py-0.5 rounded font-bold">OUTLIER</span>}
@@ -361,6 +461,15 @@ export default function PoolDashboard({ poolsState, sessionToken }: PoolDashboar
                       </td>
                       <td className="pl-2 pr-5 py-2.5 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          {supportsDeposit(pool.protocol) && (
+                            <button
+                              onClick={() => setDepositPool(pool)}
+                              className="text-[10px] px-2.5 py-1 rounded-md transition-all font-medium
+                                         bg-green-500/10 text-green-400 hover:bg-green-500/20"
+                            >
+                              Deposit
+                            </button>
+                          )}
                           <button
                             onClick={() => handleAnalyze(pool)}
                             disabled={isActive}
@@ -390,12 +499,13 @@ export default function PoolDashboard({ poolsState, sessionToken }: PoolDashboar
           ) : (
             /* ──── GRID VIEW ──── */
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 p-4">
-              {filteredPools.map((pool) => (
+              {displayPools.map((pool) => (
                 <PoolCard
                   key={pool.id}
                   pool={pool}
                   isAnalyzing={analyzingPoolId === pool.id}
                   onAnalyze={handleAnalyze}
+                  onDeposit={setDepositPool}
                 />
               ))}
             </div>
@@ -403,6 +513,29 @@ export default function PoolDashboard({ poolsState, sessionToken }: PoolDashboar
         </div>
       </div>
 
+      {/* Comparison Panel (slide-over) */}
+      {showComparison && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/50 z-40"
+            onClick={() => setShowComparison(false)}
+          />
+          <ComparisonPanel
+            pools={displayPools}
+            sessionToken={sessionToken}
+            onClose={() => setShowComparison(false)}
+          />
+        </>
+      )}
+
+      {/* Deposit Wizard (modal) */}
+      {depositPool && (
+        <DepositWizard
+          pool={depositPool}
+          sessionToken={sessionToken}
+          onClose={() => setDepositPool(null)}
+        />
+      )}
     </div>
   );
 }
