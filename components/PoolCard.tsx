@@ -2,6 +2,7 @@
 
 import type { Pool } from "@/hooks/usePools";
 import { supportsDeposit } from "@/lib/defi-adapters";
+import Badge, { chainVariant, riskVariant } from "./ui/Badge";
 
 interface PoolCardProps {
   pool: Pool;
@@ -21,18 +22,10 @@ function getRiskColor(pool: Pool): string {
   if (pool.riskScore === "risky") return "border-l-orange-500/50";
   if (pool.riskScore === "moderate") return "border-l-yellow-500/40";
   if (pool.riskScore === "safe") return "border-l-green-500/30";
-  // Fallback when no risk score
   if (pool.outlierApy || pool.apy > 100) return "border-l-red-500/50";
   if (pool.ilRisk || pool.apy >= 30) return "border-l-yellow-500/40";
   return "border-l-green-500/30";
 }
-
-const RISK_BADGE_STYLES: Record<string, string> = {
-  safe: "bg-green-500/10 text-green-400",
-  moderate: "bg-yellow-500/10 text-yellow-400",
-  risky: "bg-orange-500/10 text-orange-400",
-  trash: "bg-red-500/10 text-red-400",
-};
 
 export default function PoolCard({ pool, isAnalyzing, onAnalyze, onDeposit }: PoolCardProps) {
   return (
@@ -49,15 +42,9 @@ export default function PoolCard({ pool, isAnalyzing, onAnalyze, onDeposit }: Po
               <h4 className="font-heading font-bold text-white text-sm truncate">
                 {pool.protocol}
               </h4>
-              <span
-                className={`text-[9px] px-1.5 py-0.5 rounded font-bold flex-shrink-0 ${
-                  pool.chain === "Base"
-                    ? "bg-blue-500/10 text-blue-400"
-                    : "bg-purple-500/10 text-purple-400"
-                }`}
-              >
+              <Badge variant={chainVariant(pool.chain)} className="flex-shrink-0">
                 {pool.chain.toUpperCase()}
-              </span>
+              </Badge>
             </div>
             <p className="text-zinc-500 text-[11px] truncate font-medium">{pool.symbol}</p>
           </div>
@@ -71,45 +58,25 @@ export default function PoolCard({ pool, isAnalyzing, onAnalyze, onDeposit }: Po
             >
               {pool.apy.toFixed(1)}%
             </p>
-            <p className="text-zinc-600 text-[9px] font-bold uppercase tracking-tighter">APY</p>
+            <p className="text-zinc-600 text-[11px] font-bold uppercase tracking-tighter">APY</p>
           </div>
         </div>
 
         {/* TVL + Status badges */}
         <div className="flex items-center flex-wrap gap-1.5 mb-4">
-          <span className="text-zinc-400 text-[11px] font-medium bg-white/5 px-2 py-0.5 rounded">
-            TVL {formatTvl(pool.tvlUsd)}
-          </span>
-          {pool.claudiaPick && (
-            <span className="bg-accent/15 text-accent px-1.5 py-0.5 rounded text-[10px] font-bold">
-              CLAUDIA&apos;S PICK
-            </span>
-          )}
+          <Badge variant="neutral" size="md">TVL {formatTvl(pool.tvlUsd)}</Badge>
+          {pool.claudiaPick && <Badge variant="pick">CLAUDIA&apos;S PICK</Badge>}
           {pool.riskScore && (
-            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${RISK_BADGE_STYLES[pool.riskScore]}`}>
+            <Badge variant={riskVariant(pool.riskScore)}>
               {pool.riskScore.toUpperCase()}
-            </span>
+            </Badge>
           )}
-          {pool.audited && (
-            <span className="bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded text-[10px] font-bold">
-              AUDITED
-            </span>
-          )}
+          {pool.audited && <Badge variant="tag-audit" title="Audited protocol">AUDITED</Badge>}
           {pool.protocolAge != null && (
-            <span className="text-zinc-500 text-[10px]">
-              {pool.protocolAge}y old
-            </span>
+            <span className="text-zinc-500 text-[11px]">{pool.protocolAge}y old</span>
           )}
-          {pool.stablecoin && (
-            <span className="bg-green-500/10 text-green-400 px-1.5 py-0.5 rounded text-[10px] font-bold">
-              STABLE
-            </span>
-          )}
-          {pool.ilRisk && (
-            <span className="bg-yellow-500/10 text-yellow-400 px-1.5 py-0.5 rounded text-[10px] font-bold">
-              IL RISK
-            </span>
-          )}
+          {pool.stablecoin && <Badge variant="tag-stable">STABLE</Badge>}
+          {pool.ilRisk && <Badge variant="tag-il">IL RISK</Badge>}
         </div>
 
         {/* Actions */}
@@ -117,7 +84,7 @@ export default function PoolCard({ pool, isAnalyzing, onAnalyze, onDeposit }: Po
           {supportsDeposit(pool.protocol) && onDeposit && (
             <button
               onClick={() => onDeposit(pool)}
-              className="text-[11px] font-bold uppercase tracking-wider rounded-lg py-2.5 px-3 transition-all
+              className="text-xs font-bold uppercase tracking-wider rounded-lg py-2.5 px-3 transition-all
                          bg-green-500/10 text-green-400 hover:bg-green-500 hover:text-white"
             >
               Deposit
@@ -126,7 +93,7 @@ export default function PoolCard({ pool, isAnalyzing, onAnalyze, onDeposit }: Po
           <button
             onClick={() => onAnalyze(pool)}
             disabled={isAnalyzing}
-            className={`flex-1 text-[11px] font-bold uppercase tracking-wider rounded-lg py-2.5 transition-all ${
+            className={`flex-1 text-xs font-bold uppercase tracking-wider rounded-lg py-2.5 transition-all ${
               isAnalyzing
                 ? "bg-accent/20 text-accent animate-pulse cursor-wait"
                 : "bg-accent/5 text-accent hover:bg-accent hover:text-white"
@@ -138,7 +105,7 @@ export default function PoolCard({ pool, isAnalyzing, onAnalyze, onDeposit }: Po
             href={pool.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[11px] font-bold uppercase text-zinc-500 hover:text-white bg-surface-light hover:bg-white/10
+            className="text-xs font-bold uppercase text-zinc-500 hover:text-white bg-surface-light hover:bg-white/10
                        px-3 py-2.5 rounded-lg transition-colors"
           >
             Open

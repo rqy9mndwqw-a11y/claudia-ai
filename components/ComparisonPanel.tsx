@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import type { Pool } from "@/hooks/usePools";
 
 interface ComparisonPanelProps {
@@ -61,6 +61,13 @@ export default function ComparisonPanel({ pools, sessionToken, onClose }: Compar
 
   const relevantPools = useMemo(() => filterPoolsByAsset(pools, assetType), [pools, assetType]);
 
+  // Escape key to close
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [onClose]);
+
   const handleCompare = useCallback(async () => {
     const numAmount = parseFloat(amount);
     if (!numAmount || numAmount <= 0) return;
@@ -119,7 +126,7 @@ export default function ComparisonPanel({ pools, sessionToken, onClose }: Compar
   }, [amount, assetType, relevantPools, sessionToken]);
 
   return (
-    <div className="fixed inset-y-0 right-0 w-full max-w-md bg-bg border-l border-white/10 shadow-2xl z-50 flex flex-col">
+    <div className="fixed inset-y-0 right-0 w-full max-w-md bg-bg border-l border-white/10 shadow-2xl z-[70] flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
         <h2 className="font-heading font-bold text-white text-lg">Compare Yields</h2>

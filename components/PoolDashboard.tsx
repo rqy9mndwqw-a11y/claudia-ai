@@ -8,8 +8,10 @@ import PoolCard from "./PoolCard";
 import ComparisonPanel from "./ComparisonPanel";
 import DepositWizard from "./DepositWizard";
 import ClaudiaCharacter from "./ClaudiaCharacter";
+import Badge, { chainVariant, riskVariant } from "./ui/Badge";
 import { useClaudiaMood } from "@/hooks/useClaudiaMood";
 import { supportsDeposit } from "@/lib/defi-adapters";
+import { PoolTableSkeleton } from "./ui/Skeleton";
 
 interface PoolDashboardProps {
   poolsState: PoolsState;
@@ -314,14 +316,14 @@ export default function PoolDashboard({ poolsState, sessionToken }: PoolDashboar
             )}
 
             {riskLoading && (
-              <span className="text-[10px] text-zinc-600 italic ml-1">scoring pools...</span>
+              <span className="text-[11px] text-zinc-600 italic ml-1">scoring pools...</span>
             )}
           </div>
         </div>
 
         {/* Claudia's response panel */}
         {(claudiaMessage || isAnalyzing) && (
-          <div className="mx-5 mt-3 bg-surface rounded-xl border border-accent/20 overflow-hidden">
+          <div className="mx-5 mt-3 bg-surface rounded-xl border border-accent/20 overflow-hidden" role="status" aria-live="polite">
             <div className="flex items-center justify-between px-4 py-2 border-b border-white/5 bg-accent/5">
               <div className="flex items-center gap-2">
                 <div className={`w-2 h-2 rounded-full ${isAnalyzing ? "bg-accent animate-pulse" : "bg-accent"}`} />
@@ -330,9 +332,7 @@ export default function PoolDashboard({ poolsState, sessionToken }: PoolDashboar
                   <span className="text-xs text-zinc-500">
                     on <span className="text-zinc-300">{analyzedPool.protocol}</span>{" "}
                     <span className="text-zinc-400">{analyzedPool.symbol}</span>{" "}
-                    <span className={`text-[10px] px-1 py-0.5 rounded ${
-                      analyzedPool.chain === "Base" ? "bg-blue-500/15 text-blue-400" : "bg-purple-500/15 text-purple-400"
-                    }`}>{analyzedPool.chain}</span>
+                    <Badge variant={chainVariant(analyzedPool.chain)}>{analyzedPool.chain}</Badge>
                   </span>
                 )}
               </div>
@@ -361,9 +361,7 @@ export default function PoolDashboard({ poolsState, sessionToken }: PoolDashboar
         {/* Pool content */}
         <div className="flex-1 overflow-y-auto">
           {isLoading ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="animate-spin rounded-full h-8 w-8 border-2 border-accent border-t-transparent" />
-            </div>
+            <PoolTableSkeleton />
           ) : displayPools.length === 0 ? (
             <div className="flex items-center justify-center py-20">
               <p className="text-zinc-500 text-sm">No pools match your filters.</p>
@@ -371,8 +369,8 @@ export default function PoolDashboard({ poolsState, sessionToken }: PoolDashboar
           ) : viewMode === "list" ? (
             /* ──── LIST VIEW ──── */
             <table className="w-full text-left text-xs">
-              <thead className="sticky top-0 z-10 bg-[#14141e] border-b border-white/5">
-                <tr className="text-zinc-500 text-[10px] uppercase tracking-wider">
+              <thead className="sticky top-0 z-10 bg-bg border-b border-white/5">
+                <tr className="text-zinc-500 text-[11px] uppercase tracking-wider">
                   <th className="pl-5 pr-2 py-2.5 font-semibold w-8">#</th>
                   <th className="px-2 py-2.5 font-semibold">Pool</th>
                   <th className="px-2 py-2.5 font-semibold">Chain</th>
@@ -405,16 +403,12 @@ export default function PoolDashboard({ poolsState, sessionToken }: PoolDashboar
                       <td className="pl-5 pr-2 py-2.5 text-zinc-600 tabular-nums">{i + 1}</td>
                       <td className="px-2 py-2.5">
                         <div className="min-w-0">
-                          <span className="font-bold text-white text-[13px]">{pool.protocol}</span>
-                          <div className="text-zinc-500 text-[10px] truncate max-w-[180px]">{pool.symbol}</div>
+                          <span className="font-bold text-white text-sm">{pool.protocol}</span>
+                          <div className="text-zinc-500 text-[11px] truncate max-w-[180px]">{pool.symbol}</div>
                         </div>
                       </td>
                       <td className="px-2 py-2.5">
-                        <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${
-                          pool.chain === "Base" ? "bg-blue-500/10 text-blue-400" : "bg-purple-500/10 text-purple-400"
-                        }`}>
-                          {pool.chain}
-                        </span>
+                        <Badge variant={chainVariant(pool.chain)}>{pool.chain}</Badge>
                       </td>
                       <td className="px-2 py-2.5 text-right">
                         <span className={`font-heading font-bold text-sm tabular-nums ${
@@ -438,25 +432,12 @@ export default function PoolDashboard({ poolsState, sessionToken }: PoolDashboar
                       </td>
                       <td className="px-2 py-2.5 hidden md:table-cell">
                         <div className="flex flex-wrap gap-1">
-                          {pool.claudiaPick && (
-                            <span className="text-[8px] bg-accent/15 text-accent px-1.5 py-0.5 rounded font-bold">PICK</span>
-                          )}
-                          {pool.riskScore && (
-                            <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold ${
-                              pool.riskScore === "safe" ? "bg-green-500/10 text-green-400"
-                              : pool.riskScore === "moderate" ? "bg-yellow-500/10 text-yellow-400"
-                              : pool.riskScore === "risky" ? "bg-orange-500/10 text-orange-400"
-                              : "bg-red-500/10 text-red-400"
-                            }`}>
-                              {pool.riskScore.toUpperCase()}
-                            </span>
-                          )}
-                          {pool.audited && (
-                            <span className="text-[8px] bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded font-bold" title="Audited protocol">AUDIT</span>
-                          )}
-                          {pool.stablecoin && <span className="text-[8px] bg-green-500/10 text-green-400 px-1.5 py-0.5 rounded font-bold">STABLE</span>}
-                          {pool.ilRisk && <span className="text-[8px] bg-yellow-500/10 text-yellow-400 px-1.5 py-0.5 rounded font-bold">IL</span>}
-                          {pool.outlierApy && <span className="text-[8px] bg-red-500/10 text-red-400 px-1.5 py-0.5 rounded font-bold">OUTLIER</span>}
+                          {pool.claudiaPick && <Badge variant="pick">PICK</Badge>}
+                          {pool.riskScore && <Badge variant={riskVariant(pool.riskScore)}>{pool.riskScore.toUpperCase()}</Badge>}
+                          {pool.audited && <Badge variant="tag-audit" title="Audited protocol">AUDIT</Badge>}
+                          {pool.stablecoin && <Badge variant="tag-stable">STABLE</Badge>}
+                          {pool.ilRisk && <Badge variant="tag-il">IL</Badge>}
+                          {pool.outlierApy && <Badge variant="tag-outlier">OUTLIER</Badge>}
                         </div>
                       </td>
                       <td className="pl-2 pr-5 py-2.5 text-right">
@@ -464,7 +445,7 @@ export default function PoolDashboard({ poolsState, sessionToken }: PoolDashboar
                           {supportsDeposit(pool.protocol) && (
                             <button
                               onClick={() => setDepositPool(pool)}
-                              className="text-[10px] px-2.5 py-1 rounded-md transition-all font-medium
+                              className="text-[11px] px-2.5 py-1 rounded-md transition-all font-medium
                                          bg-green-500/10 text-green-400 hover:bg-green-500/20"
                             >
                               Deposit
@@ -473,7 +454,7 @@ export default function PoolDashboard({ poolsState, sessionToken }: PoolDashboar
                           <button
                             onClick={() => handleAnalyze(pool)}
                             disabled={isActive}
-                            className={`text-[10px] px-2.5 py-1 rounded-md transition-all font-medium ${
+                            className={`text-[11px] px-2.5 py-1 rounded-md transition-all font-medium ${
                               isActive
                                 ? "bg-accent/20 text-accent animate-pulse"
                                 : "text-accent hover:bg-accent/15"
@@ -485,7 +466,7 @@ export default function PoolDashboard({ poolsState, sessionToken }: PoolDashboar
                             href={pool.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-[10px] px-2 py-1 text-zinc-600 hover:text-zinc-300 rounded-md transition-colors"
+                            className="text-[11px] px-2 py-1 text-zinc-600 hover:text-zinc-300 rounded-md transition-colors"
                           >
                             Open
                           </a>
@@ -517,7 +498,7 @@ export default function PoolDashboard({ poolsState, sessionToken }: PoolDashboar
       {showComparison && (
         <>
           <div
-            className="fixed inset-0 bg-black/50 z-40"
+            className="fixed inset-0 bg-black/50 z-[60]"
             onClick={() => setShowComparison(false)}
           />
           <ComparisonPanel

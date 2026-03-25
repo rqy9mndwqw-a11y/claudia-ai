@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import type { Position } from "@/lib/protocol-adapters";
 import PositionCard from "./PositionCard";
+import { PositionSkeleton } from "./ui/Skeleton";
 
 interface PortfolioOverviewProps {
   positions: Position[];
@@ -123,7 +124,7 @@ export default function PortfolioOverview({
 
       {/* Claudia's health check */}
       {(claudiaCheck || isChecking) && (
-        <div className="mx-5 mt-3 bg-surface rounded-xl border border-accent/20 overflow-hidden">
+        <div className="mx-5 mt-3 bg-surface rounded-xl border border-accent/20 overflow-hidden" role="status" aria-live="polite">
           <div className="flex items-center justify-between px-4 py-2 border-b border-white/5 bg-accent/5">
             <div className="flex items-center gap-2">
               <div className={`w-2 h-2 rounded-full ${isChecking ? "bg-accent animate-pulse" : "bg-accent"}`} />
@@ -154,9 +155,7 @@ export default function PortfolioOverview({
       {/* Positions */}
       <div className="p-5 space-y-3">
         {isLoading && positions.length === 0 ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="animate-spin rounded-full h-8 w-8 border-2 border-accent border-t-transparent" />
-          </div>
+          <PositionSkeleton />
         ) : positions.length === 0 ? (
           <div className="text-center py-16">
             <p className="text-zinc-500 text-sm mb-1">No DeFi positions found on Base.</p>

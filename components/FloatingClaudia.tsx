@@ -35,7 +35,7 @@ export default function FloatingClaudia() {
   if (!shouldShow) return null;
 
   return (
-    <div className="md:hidden fixed bottom-20 right-4 z-50">
+    <div className="md:hidden fixed bottom-20 right-4 z-40">
       {/* The actual character, revealed when open */}
       <div 
         className={`transition-all duration-500 transform origin-bottom-right ${
@@ -62,6 +62,8 @@ export default function FloatingClaudia() {
       {/* Floating Trigger Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
+        aria-label={isOpen ? "Close Claudia" : "Show Claudia"}
+        aria-expanded={isOpen}
         className={`relative w-14 h-14 rounded-full border-2 transition-all duration-300 shadow-lg overflow-hidden group ${
           isOpen 
             ? "border-accent bg-surface scale-90" 

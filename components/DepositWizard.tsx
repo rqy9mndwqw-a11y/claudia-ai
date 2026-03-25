@@ -49,6 +49,13 @@ export default function DepositWizard({ pool, sessionToken, onClose }: DepositWi
   const adapter = getDefiAdapter(pool.protocol);
   const tokenInfo = resolveAaveToken(pool);
 
+  // Escape key to close
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [onClose]);
+
   // Fetch Claudia's brief on mount
   useEffect(() => {
     if (!sessionToken) return;
@@ -179,7 +186,7 @@ export default function DepositWizard({ pool, sessionToken, onClose }: DepositWi
 
   if (!adapter) {
     return (
-      <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4">
         <div className="bg-bg rounded-2xl border border-white/10 p-6 max-w-md w-full text-center">
           <p className="text-zinc-400 mb-4">Deposits aren&apos;t supported for {pool.protocol} yet.</p>
           <button onClick={onClose} className="text-accent hover:underline text-sm">Close</button>
@@ -189,7 +196,7 @@ export default function DepositWizard({ pool, sessionToken, onClose }: DepositWi
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4">
       <div className="bg-bg rounded-2xl border border-white/10 max-w-lg w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
