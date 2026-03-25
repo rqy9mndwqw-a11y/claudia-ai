@@ -31,7 +31,7 @@ export default function PoolCard({ pool, isAnalyzing, onAnalyze, onDeposit }: Po
   return (
     <div
       className={`bg-surface/50 rounded-xl border border-white/5 border-l-[3px] ${getRiskColor(pool)}
-                  hover:bg-surface hover:border-white/10 transition-all duration-300
+                  hover:bg-surface hover:border-white/10 hover:-translate-y-px hover:shadow-lg hover:shadow-black/20 transition-all duration-200
                   ${isAnalyzing ? "ring-1 ring-accent/40 shadow-lg shadow-accent/10" : ""}`}
     >
       <div className="p-4">

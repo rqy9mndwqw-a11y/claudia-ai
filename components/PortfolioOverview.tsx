@@ -92,11 +92,11 @@ export default function PortfolioOverview({
       <div className="px-5 py-4 border-b border-white/5 bg-surface/20">
         <div className="flex items-center gap-6">
           <div>
-            <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold">Total Value</p>
+            <p className="text-[11px] text-zinc-500 uppercase tracking-wider font-bold">Total Value</p>
             <p className="text-white font-heading font-bold text-2xl">{formatUsd(totalValue)}</p>
           </div>
           <div>
-            <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold">Positions</p>
+            <p className="text-[11px] text-zinc-500 uppercase tracking-wider font-bold">Positions</p>
             <p className="text-white font-heading font-bold text-2xl">{positions.length}</p>
           </div>
           <div className="ml-auto flex items-center gap-3">

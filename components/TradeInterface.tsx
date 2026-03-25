@@ -284,7 +284,7 @@ export default function TradeInterface() {
                 </button>
 
                 <div className="bg-surface/50 rounded-lg p-3 border border-white/5">
-                  <p className="text-zinc-600 text-[10px] leading-relaxed">
+                  <p className="text-zinc-600 text-[11px] leading-relaxed">
                     Your keys are stored encrypted in your browser only. They&apos;re sent over HTTPS
                     when scanning or trading, then discarded. Never stored on our servers.
                     Claudia can&apos;t withdraw — only trade. Revoke your key anytime from {exchange === "kraken" ? "Kraken" : "Coinbase"} settings.
@@ -317,7 +317,7 @@ export default function TradeInterface() {
               {/* Balance display */}
               {Object.keys(balances).length > 0 && (
                 <div className="bg-surface rounded-lg p-3 border border-white/5 mb-4">
-                  <p className="text-zinc-500 text-[10px] uppercase tracking-widest mb-2">Your Balances</p>
+                  <p className="text-zinc-500 text-[11px] uppercase tracking-widest mb-2">Your Balances</p>
                   <div className="flex flex-wrap gap-2">
                     {Object.entries(balances).slice(0, 8).map(([k, v]) => (
                       <span key={k} className="text-xs text-zinc-400 bg-surface-light px-2 py-1 rounded">
@@ -412,12 +412,12 @@ export default function TradeInterface() {
                       </span>
                     </div>
                     <div className="flex items-center gap-3 mt-1">
-                      <span className={`text-[10px] font-mono ${
+                      <span className={`text-[11px] font-mono ${
                         d.rsi > 70 ? "text-red-400" : d.rsi < 30 ? "text-green-400" : "text-zinc-500"
                       }`}>
                         RSI {d.rsi}
                       </span>
-                      <span className="text-zinc-600 text-[10px]">
+                      <span className="text-zinc-600 text-[11px]">
                         Vol ${d.volume24h >= 1_000_000 ? `${(d.volume24h / 1_000_000).toFixed(1)}M` : `${(d.volume24h / 1_000).toFixed(0)}K`}
                       </span>
                     </div>
@@ -454,7 +454,7 @@ export default function TradeInterface() {
                   {/* Row 1: Coin, Side, Amount */}
                   <div className="grid grid-cols-3 gap-3">
                     <div>
-                      <label className="text-zinc-600 text-[10px] uppercase tracking-widest block mb-1">Coin</label>
+                      <label className="text-zinc-600 text-[11px] uppercase tracking-widest block mb-1">Coin</label>
                       <select
                         value={execSymbol}
                         onChange={(e) => setExecSymbol(e.target.value)}
@@ -473,7 +473,7 @@ export default function TradeInterface() {
                       </select>
                     </div>
                     <div>
-                      <label className="text-zinc-600 text-[10px] uppercase tracking-widest block mb-1">Side</label>
+                      <label className="text-zinc-600 text-[11px] uppercase tracking-widest block mb-1">Side</label>
                       <div className="flex gap-1">
                         <button
                           onClick={() => setExecSide("buy")}
@@ -494,7 +494,7 @@ export default function TradeInterface() {
                       </div>
                     </div>
                     <div>
-                      <label className="text-zinc-600 text-[10px] uppercase tracking-widest block mb-1">
+                      <label className="text-zinc-600 text-[11px] uppercase tracking-widest block mb-1">
                         Amount (USD)
                         {balances["ZUSD"] && (
                           <button
@@ -519,7 +519,7 @@ export default function TradeInterface() {
                   {/* Row 2: Stop Loss + Take Profit (optional) */}
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-zinc-600 text-[10px] uppercase tracking-widest block mb-1">
+                      <label className="text-zinc-600 text-[11px] uppercase tracking-widest block mb-1">
                         Stop Loss
                         <span className="text-zinc-700 normal-case ml-1">(optional)</span>
                       </label>
@@ -537,7 +537,7 @@ export default function TradeInterface() {
                       </div>
                     </div>
                     <div>
-                      <label className="text-zinc-600 text-[10px] uppercase tracking-widest block mb-1">
+                      <label className="text-zinc-600 text-[11px] uppercase tracking-widest block mb-1">
                         Take Profit
                         <span className="text-zinc-700 normal-case ml-1">(optional)</span>
                       </label>
@@ -558,7 +558,7 @@ export default function TradeInterface() {
 
                   {/* Claudia's suggested levels hint */}
                   {execSymbol && analysis && (
-                    <p className="text-zinc-600 text-[10px] italic">
+                    <p className="text-zinc-600 text-[11px] italic">
                       Check Claudia&apos;s signal above for suggested stop and target levels on {execSymbol}.
                     </p>
                   )}
@@ -575,7 +575,7 @@ export default function TradeInterface() {
                         )}
                       </div>
                       {(execStopLoss || execTakeProfit) && (
-                        <div className="flex items-center gap-4 text-[10px]">
+                        <div className="flex items-center gap-4 text-[11px]">
                           {execStopLoss && (
                             <span className="text-red-400">SL: ${parseFloat(execStopLoss).toLocaleString()}</span>
                           )}

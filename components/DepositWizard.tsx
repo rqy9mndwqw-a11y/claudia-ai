@@ -223,14 +223,14 @@ export default function DepositWizard({ pool, sessionToken, onClose }: DepositWi
             </div>
             <div className="text-right">
               <p className="text-accent font-heading font-bold text-lg">{pool.apy.toFixed(1)}%</p>
-              <p className="text-zinc-600 text-[10px] uppercase">APY</p>
+              <p className="text-zinc-600 text-[11px] uppercase">APY</p>
             </div>
           </div>
 
           {/* Claudia's brief */}
           {(claudiaBrief || briefLoading) && (
             <div className="bg-accent/5 border border-accent/20 rounded-xl p-3">
-              <p className="text-[10px] text-accent uppercase font-bold mb-1">Claudia says</p>
+              <p className="text-[11px] text-accent uppercase font-bold mb-1">Claudia says</p>
               {briefLoading ? (
                 <p className="text-xs text-zinc-500 italic">thinking about this one...</p>
               ) : (

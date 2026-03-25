@@ -180,7 +180,7 @@ export default function ComparisonPanel({ pools, sessionToken, onClose }: Compar
               </button>
             ))}
           </div>
-          <p className="text-[10px] text-zinc-600 mt-1">
+          <p className="text-[11px] text-zinc-600 mt-1">
             {relevantPools.length} matching pools
           </p>
         </div>
@@ -228,11 +228,11 @@ export default function ComparisonPanel({ pools, sessionToken, onClose }: Compar
                 {/* Earnings */}
                 <div className="flex gap-3">
                   <div className="bg-white/5 rounded-lg px-3 py-1.5 flex-1">
-                    <p className="text-[10px] text-zinc-500 uppercase">Monthly</p>
+                    <p className="text-[11px] text-zinc-500 uppercase">Monthly</p>
                     <p className="text-white font-bold text-sm">{formatUsd(pick.monthlyEarnings)}</p>
                   </div>
                   <div className="bg-white/5 rounded-lg px-3 py-1.5 flex-1">
-                    <p className="text-[10px] text-zinc-500 uppercase">Annual</p>
+                    <p className="text-[11px] text-zinc-500 uppercase">Annual</p>
                     <p className="text-green-400 font-bold text-sm">{formatUsd(pick.annualEarnings)}</p>
                   </div>
                 </div>
@@ -247,7 +247,7 @@ export default function ComparisonPanel({ pools, sessionToken, onClose }: Compar
             {/* Summary */}
             {result.summary && (
               <div className="bg-accent/5 border border-accent/20 rounded-xl p-4 mt-2">
-                <p className="text-[10px] text-accent uppercase font-bold mb-1">Claudia&apos;s Verdict</p>
+                <p className="text-[11px] text-accent uppercase font-bold mb-1">Claudia&apos;s Verdict</p>
                 <p className="text-zinc-300 text-sm leading-relaxed">{result.summary}</p>
               </div>
             )}

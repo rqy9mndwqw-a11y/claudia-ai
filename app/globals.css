@@ -8,10 +8,25 @@ body {
   background-color: #0E0E14;
   color: #e4e4e7;
   font-family: 'DM Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 h1, h2, h3, h4, h5, h6 {
   font-family: 'Syne', sans-serif;
+  letter-spacing: -0.02em;
+}
+
+/* Tighter tracking on large display headings */
+.text-5xl, .text-6xl {
+  letter-spacing: -0.03em;
+}
+
+/* Smooth transitions baseline — all interactive elements */
+button, a, input, select {
+  transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+  transition-duration: 150ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Focus visible — global accessibility */

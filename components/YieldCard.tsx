@@ -54,7 +54,7 @@ export default function YieldCard({
         {apyBase != null && <span>Base {apyBase}%</span>}
         {apyReward != null && <span>Rewards {apyReward}%</span>}
         {stablecoin && (
-          <span className="bg-green-900/30 text-green-400 px-1.5 py-0.5 rounded text-[10px]">
+          <span className="bg-green-900/30 text-green-400 px-1.5 py-0.5 rounded text-[11px]">
             Stable
           </span>
         )}

@@ -29,14 +29,14 @@ export default function Home() {
             }}
           />
         </div>
-        <h1 className="font-heading text-5xl md:text-6xl font-extrabold text-white mb-4">
+        <h1 className="font-heading text-5xl md:text-6xl font-extrabold text-white mb-3">
           Claudia <span className="text-accent">AI</span>
         </h1>
-        <p className="text-zinc-400 text-lg md:text-xl mb-2 max-w-lg">
+        <p className="text-zinc-400 text-lg md:text-xl mb-2 max-w-lg leading-relaxed">
           DeFi without the drama. Ask what to do with your money and get real
           answers — not disclaimers.
         </p>
-        <p className="text-zinc-500 text-sm mb-10 italic">
+        <p className="text-zinc-500 text-sm mb-10 italic tracking-wide">
           &ldquo;When Claude won&apos;t, Claudia will.&rdquo;
         </p>
         <WalletConnect />
@@ -46,9 +46,9 @@ export default function Home() {
             { title: "Plain English", desc: "Ask anything about DeFi. Claudia explains it like a smart friend." },
             { title: "Your Keys", desc: "Claudia never holds your funds. You sign every transaction yourself." },
           ].map((f) => (
-            <div key={f.title} className="bg-surface rounded-xl p-5 border border-white/5">
-              <h3 className="font-heading font-bold text-white mb-1">{f.title}</h3>
-              <p className="text-zinc-500 text-sm">{f.desc}</p>
+            <div key={f.title} className="bg-surface rounded-xl p-5 border border-white/5 hover:border-white/10 hover:bg-surface-light/50 transition-all duration-200">
+              <h3 className="font-heading font-bold text-white mb-1.5">{f.title}</h3>
+              <p className="text-zinc-500 text-sm leading-relaxed">{f.desc}</p>
             </div>
           ))}
         </div>

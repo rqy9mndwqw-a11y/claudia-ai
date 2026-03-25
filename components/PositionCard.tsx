@@ -1,6 +1,7 @@
 "use client";
 
 import type { Position } from "@/lib/protocol-adapters";
+import Badge, { chainVariant } from "./ui/Badge";
 
 interface PositionCardProps {
   position: Position;
@@ -15,17 +16,18 @@ function formatUsd(n: number): string {
 export default function PositionCard({ position }: PositionCardProps) {
   return (
     <div className="bg-surface/50 rounded-xl border border-white/5 border-l-[3px] border-l-green-500/30
-                    hover:bg-surface hover:border-white/10 transition-all duration-300 p-4">
+                    hover:bg-surface hover:border-white/10 hover:-translate-y-px hover:shadow-lg hover:shadow-black/20
+                    transition-all duration-200 p-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div>
           <div className="flex items-center gap-2">
             <h4 className="font-heading font-bold text-white text-sm">{position.protocol}</h4>
-            <span className="text-[9px] px-1.5 py-0.5 rounded font-bold bg-blue-500/10 text-blue-400">
+            <Badge variant={chainVariant(position.chain)}>
               {position.chain.toUpperCase()}
-            </span>
+            </Badge>
           </div>
-          <p className="text-zinc-500 text-[11px] font-medium">{position.pool}</p>
+          <p className="text-zinc-500 text-[11px] font-medium mt-0.5">{position.pool}</p>
         </div>
         <div className="text-right">
           <p className="text-white font-heading font-bold text-lg">{formatUsd(position.currentValue)}</p>

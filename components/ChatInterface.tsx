@@ -245,7 +245,7 @@ export default function ChatInterface() {
           </div>
           <div>
             <h2 className="font-heading font-bold text-white text-sm">Claudia</h2>
-            <p className="text-zinc-600 text-[10px]">
+            <p className="text-zinc-600 text-[11px]">
               {loading ? thinkingQuip : yieldsLoading ? "loading..." : `${yields.length} pools on Base`}
             </p>
           </div>
@@ -392,7 +392,7 @@ export default function ChatInterface() {
                 Send
               </button>
             </div>
-            <p className="text-zinc-700 text-[10px] mt-1.5 text-center">
+            <p className="text-zinc-700 text-[11px] mt-1.5 text-center">
               Live DeFi data. Your keys, your trades. Claudia never holds funds.
             </p>
           </div>

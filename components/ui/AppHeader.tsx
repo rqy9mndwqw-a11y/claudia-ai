@@ -15,7 +15,7 @@ export default function AppHeader() {
   const pathname = usePathname();
 
   return (
-    <header className="flex items-center justify-between px-4 py-2 border-b border-white/5">
+    <header className="flex items-center justify-between px-4 py-2.5 border-b border-white/5 bg-bg/80 backdrop-blur-md">
       <div className="flex items-center gap-3">
         <MobileNav />
         <a href="/" className="font-heading font-bold text-white text-lg">
@@ -31,7 +31,7 @@ export default function AppHeader() {
                 className={`text-xs px-3 py-1.5 rounded-lg transition-colors font-medium ${
                   isActive
                     ? "text-white bg-surface-light"
-                    : "text-zinc-500 hover:text-white"
+                    : "text-zinc-500 hover:text-white hover:bg-white/5"
                 }`}
                 aria-current={isActive ? "page" : undefined}
               >
