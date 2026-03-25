@@ -48,9 +48,9 @@ export default function PoolDashboard({ poolsState, sessionToken }: PoolDashboar
   // Risk scores
   const { scores: riskScores, isLoading: riskLoading } = useRiskScores(poolsState.pools, sessionToken);
 
-  // Enrich pools with risk data + protocol metadata
+  // Enrich pools with risk data + protocol metadata, then apply risk filter
   const enrichedPools = useMemo(() => {
-    return filteredPools.map((pool) => {
+    let result = filteredPools.map((pool) => {
       const score = riskScores[pool.id];
       const meta = getProtocolMeta(pool.protocol);
       const age = getProtocolAge(pool.protocol);
@@ -63,7 +63,16 @@ export default function PoolDashboard({ poolsState, sessionToken }: PoolDashboar
         audited: meta?.audited,
       };
     });
-  }, [filteredPools, riskScores]);
+
+    // Risk level filter (runs here because riskScore/claudiaPick come from enrichment)
+    if (filters.riskLevel === "picks") {
+      result = result.filter((p) => p.claudiaPick);
+    } else if (filters.riskLevel !== "all") {
+      result = result.filter((p) => p.riskScore === filters.riskLevel);
+    }
+
+    return result;
+  }, [filteredPools, riskScores, filters.riskLevel]);
 
   const claudiaMood = useClaudiaMood({
     walletConnected: true,

@@ -167,12 +167,8 @@ export function usePools(): PoolsState {
       );
     }
 
-    // Risk level filter
-    if (filters.riskLevel === "picks") {
-      result = result.filter((p) => p.claudiaPick);
-    } else if (filters.riskLevel !== "all") {
-      result = result.filter((p) => p.riskScore === filters.riskLevel);
-    }
+    // NOTE: Risk level filtering is done in PoolDashboard on enrichedPools,
+    // because riskScore and claudiaPick are added post-fetch by useRiskScores.
 
     // Sort
     result.sort((a, b) => {
