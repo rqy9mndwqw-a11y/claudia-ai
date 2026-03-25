@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RainbowKitProvider, darkTheme } from "@rainbow-me/rainbowkit";
 import "@rainbow-me/rainbowkit/styles.css";
 import { wagmiConfig } from "@/lib/wagmi";
+import { ToastProvider } from "./ui/Toast";
 import { useState, useEffect } from "react";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
@@ -26,7 +27,9 @@ export default function Providers({ children }: { children: React.ReactNode }) {
             overlayBlur: "small",
           })}
         >
-          {mounted ? children : null}
+          <ToastProvider>
+            {mounted ? children : null}
+          </ToastProvider>
         </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>

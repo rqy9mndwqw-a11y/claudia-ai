@@ -16,10 +16,42 @@ function getClient() {
   });
 }
 
+/** Tokens that need a price feed (not stablecoins) */
+const NEEDS_PRICE = new Set(["WETH", "cbETH"]);
+
+/** Fetch ETH price from DeFiLlama (free, no API key). Falls back to CoinGecko. */
+async function fetchEthPrice(): Promise<number> {
+  try {
+    const res = await fetch("https://coins.llama.fi/prices/current/coingecko:ethereum", {
+      signal: AbortSignal.timeout(5000),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const price = data?.coins?.["coingecko:ethereum"]?.price;
+      if (typeof price === "number" && price > 0) return price;
+    }
+  } catch {}
+
+  // Fallback: CoinGecko direct
+  try {
+    const res = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd", {
+      signal: AbortSignal.timeout(5000),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const price = data?.ethereum?.usd;
+      if (typeof price === "number" && price > 0) return price;
+    }
+  } catch {}
+
+  // Last resort — stale but better than nothing
+  return 3000;
+}
+
 /**
  * Aave V3 adapter for Base.
  * Reads aToken balances to detect deposits.
- * A non-zero aToken balance = active lending position.
+ * Fetches live ETH price for non-stablecoin positions.
  */
 export const aaveAdapter: ProtocolAdapter = {
   protocol: "Aave V3",
@@ -28,18 +60,21 @@ export const aaveAdapter: ProtocolAdapter = {
     const client = getClient();
     const positions: Position[] = [];
 
-    // Read all aToken balances in parallel
+    // Fetch balances and ETH price in parallel
     const entries = Object.entries(AAVE_ATOKENS);
-    const balanceResults = await Promise.allSettled(
-      entries.map(([, token]) =>
-        client.readContract({
-          address: token.aToken,
-          abi: ERC20_ABI,
-          functionName: "balanceOf",
-          args: [address],
-        })
-      )
-    );
+    const [balanceResults, ethPrice] = await Promise.all([
+      Promise.allSettled(
+        entries.map(([, token]) =>
+          client.readContract({
+            address: token.aToken,
+            abi: ERC20_ABI,
+            functionName: "balanceOf",
+            args: [address],
+          })
+        )
+      ),
+      fetchEthPrice(),
+    ]);
 
     for (let i = 0; i < entries.length; i++) {
       const [symbol, token] = entries[i];
@@ -52,13 +87,9 @@ export const aaveAdapter: ProtocolAdapter = {
       const balance = formatUnits(rawBalance, token.decimals);
       const balanceNum = parseFloat(balance);
 
-      // Rough USD estimate — stablecoins = 1:1, ETH variants use a placeholder
-      // A proper price feed would be better but this works for MVP
       let usdValue = balanceNum;
-      if (symbol === "WETH" || symbol === "cbETH") {
-        // We don't have a price feed here, so estimate conservatively
-        // The portfolio page can fetch real prices separately
-        usdValue = balanceNum * 3000; // rough ETH price placeholder
+      if (NEEDS_PRICE.has(symbol)) {
+        usdValue = balanceNum * ethPrice;
       }
 
       positions.push({
@@ -66,7 +97,7 @@ export const aaveAdapter: ProtocolAdapter = {
         pool: `a${symbol} (lending)`,
         tokens: [symbol],
         currentValue: usdValue,
-        apy: null, // filled in by the hook from DeFiLlama data
+        apy: null,
         chain: "Base",
         balance,
         tokenAddress: token.aToken,

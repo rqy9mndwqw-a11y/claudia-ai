@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useAccount, useSendTransaction, useWaitForTransactionReceipt } from "wagmi";
 import type { Pool } from "@/hooks/usePools";
 import { getDefiAdapter, type TxStep, type StepStatus } from "@/lib/defi-adapters";
@@ -82,12 +82,48 @@ export default function DepositWizard({ pool, sessionToken, onClose }: DepositWi
       .finally(() => setBriefLoading(false));
   }, [sessionToken, pool]);
 
-  // Handle transaction receipt completion
+  // Refs to avoid stale closures in the execution chain
+  const stepsRef = useRef<TxStep[]>([]);
+  const executingRef = useRef(false);
+
+  const executeStep = useCallback(async (stepIndex: number) => {
+    const step = stepsRef.current[stepIndex];
+    if (!step || executingRef.current) return;
+    executingRef.current = true;
+
+    setStepStatuses((prev) => {
+      const next = [...prev];
+      next[stepIndex] = "active";
+      return next;
+    });
+
+    try {
+      const hash = await sendTransactionAsync({
+        to: step.tx.to,
+        data: step.tx.data,
+        value: step.tx.value,
+      });
+      executingRef.current = false;
+      setPendingTxHash(hash);
+    } catch (err) {
+      executingRef.current = false;
+      setStepStatuses((prev) => {
+        const next = [...prev];
+        next[stepIndex] = "error";
+        return next;
+      });
+      setErrorMessage((err as Error).message?.includes("rejected")
+        ? "Transaction rejected in wallet."
+        : "Transaction failed. Try again.");
+      setPhase("error");
+    }
+  }, [sendTransactionAsync]);
+
+  // Handle transaction receipt → advance to next step or finish
   useEffect(() => {
     if (!pendingTxHash) return;
 
     if (txReceipt.isSuccess) {
-      // Mark current step as complete
       setStepStatuses((prev) => {
         const next = [...prev];
         next[currentStepIndex] = "complete";
@@ -95,10 +131,9 @@ export default function DepositWizard({ pool, sessionToken, onClose }: DepositWi
       });
 
       const nextIndex = currentStepIndex + 1;
-      if (nextIndex < steps.length) {
+      if (nextIndex < stepsRef.current.length) {
         setCurrentStepIndex(nextIndex);
         setPendingTxHash(undefined);
-        // Execute next step
         executeStep(nextIndex);
       } else {
         setPhase("done");
@@ -116,37 +151,7 @@ export default function DepositWizard({ pool, sessionToken, onClose }: DepositWi
       setPhase("error");
       setPendingTxHash(undefined);
     }
-  }, [txReceipt.isSuccess, txReceipt.isError, pendingTxHash, currentStepIndex, steps.length]);
-
-  const executeStep = useCallback(async (stepIndex: number) => {
-    const step = steps[stepIndex];
-    if (!step) return;
-
-    setStepStatuses((prev) => {
-      const next = [...prev];
-      next[stepIndex] = "active";
-      return next;
-    });
-
-    try {
-      const hash = await sendTransactionAsync({
-        to: step.tx.to,
-        data: step.tx.data,
-        value: step.tx.value,
-      });
-      setPendingTxHash(hash);
-    } catch (err) {
-      setStepStatuses((prev) => {
-        const next = [...prev];
-        next[stepIndex] = "error";
-        return next;
-      });
-      setErrorMessage((err as Error).message?.includes("rejected")
-        ? "Transaction rejected in wallet."
-        : "Transaction failed. Try again.");
-      setPhase("error");
-    }
-  }, [steps, sendTransactionAsync]);
+  }, [txReceipt.isSuccess, txReceipt.isError, pendingTxHash, currentStepIndex, executeStep]);
 
   const handleDeposit = useCallback(async () => {
     if (!adapter || !address || !tokenInfo) return;
@@ -164,25 +169,17 @@ export default function DepositWizard({ pool, sessionToken, onClose }: DepositWi
         decimals: tokenInfo.decimals,
       });
 
+      stepsRef.current = txSteps;
       setSteps(txSteps);
       setStepStatuses(txSteps.map(() => "upcoming" as StepStatus));
       setCurrentStepIndex(0);
       setPhase("executing");
-
-      // Start first step
       executeStep(0);
     } catch (err) {
       setErrorMessage((err as Error).message || "Failed to prepare deposit.");
       setPhase("error");
     }
   }, [adapter, address, tokenInfo, amount, executeStep]);
-
-  // Need to pass executeStep after steps are set — use effect to start first step
-  useEffect(() => {
-    if (phase === "executing" && steps.length > 0 && stepStatuses[0] === "upcoming") {
-      executeStep(0);
-    }
-  }, [phase, steps, stepStatuses, executeStep]);
 
   if (!adapter) {
     return (
