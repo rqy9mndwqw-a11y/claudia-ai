@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { useWriteContract, useReadContract } from "wagmi";
+import { useWriteContract, usePublicClient } from "wagmi";
 import { parseUnits, formatUnits } from "viem";
 import AppHeader from "@/components/ui/AppHeader";
 import TokenGate from "@/components/TokenGate";
@@ -294,6 +294,7 @@ function CreditsContent({ sessionToken, walletAddress }: { sessionToken: string 
   const quoteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { writeContractAsync } = useWriteContract();
+  const publicClient = usePublicClient();
 
   const isProcessing = step !== "idle" && step !== "done" && step !== "error";
 
@@ -350,9 +351,11 @@ function CreditsContent({ sessionToken, walletAddress }: { sessionToken: string 
 
   // ── Shared issue-credits-via-API logic ──
   async function issueCreditsFromTx(purchaseHash: string, token: string): Promise<boolean> {
-    await new Promise((r) => setTimeout(r, 3000));
+    // Tx is already confirmed (waitForTransactionReceipt ran before this).
+    // Small delay for RPC indexing consistency only.
+    await new Promise((r) => setTimeout(r, 1000));
 
-    for (let attempt = 0; attempt < 3; attempt++) {
+    for (let attempt = 0; attempt < 5; attempt++) {
       const freshToken = getFreshSessionToken(walletAddress) || token;
       const res = await fetch("/api/credits/purchase", {
         method: "POST",
@@ -364,14 +367,21 @@ function CreditsContent({ sessionToken, walletAddress }: { sessionToken: string 
       });
 
       if (res.ok) return true;
+      if (res.status === 409) return true; // Already processed
 
       const data = await res.json().catch(() => null) as any;
 
-      if (res.status === 425) {
-        await new Promise((r) => setTimeout(r, 3000));
+      // 425 (Too Early) or 404 (not indexed yet) — wait and retry
+      if (res.status === 425 || res.status === 404) {
+        await new Promise((r) => setTimeout(r, 5000));
         continue;
       }
-      if (res.status === 409) return true;
+
+      // Any other error on first attempt — might be transient, retry once
+      if (attempt === 0) {
+        await new Promise((r) => setTimeout(r, 5000));
+        continue;
+      }
 
       setFailedTxHash(purchaseHash);
       throw new Error(data?.error || "Failed to issue credits");
@@ -391,14 +401,21 @@ function CreditsContent({ sessionToken, walletAddress }: { sessionToken: string 
     setFailedTxHash(null);
 
     try {
+      // Step 1: Approve — submitted to mempool
       setStep("approving");
-      await writeContractAsync({ address: CLAUDIA_TOKEN, abi: ERC20_APPROVE_ABI, functionName: "approve", args: [CREDITS_CONTRACT, parsed] });
+      const approveHash = await writeContractAsync({ address: CLAUDIA_TOKEN, abi: ERC20_APPROVE_ABI, functionName: "approve", args: [CREDITS_CONTRACT, parsed] });
+      // Wait for approve to be MINED (not just submitted)
+      if (publicClient) await publicClient.waitForTransactionReceipt({ hash: approveHash, confirmations: 1 });
 
+      // Step 2: Purchase — submitted to mempool
       setStep("purchasing");
       const hash = await writeContractAsync({ address: CREDITS_CONTRACT, abi: CREDITS_PURCHASE_CLAUDIA_ABI, functionName: "purchaseWithClaudia", args: [parsed] });
+      // Wait for purchase to be MINED before calling API
+      if (publicClient) await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
 
       if (walletAddress) savePendingTx({ txHash: hash, walletAddress, timestamp: Date.now(), amount: claudiaAmount });
 
+      // Step 3: Issue credits — tx is now confirmed on-chain
       setStep("issuing");
       const issued = await issueCreditsFromTx(hash, token);
       if (!issued) { setFailedTxHash(hash); throw new Error("Credits not issued after 3 attempts. Save your tx hash."); }
@@ -411,7 +428,7 @@ function CreditsContent({ sessionToken, walletAddress }: { sessionToken: string 
       setErrorMsg(msg.includes("rejected") || msg.includes("denied") ? "Transaction rejected. Try again." : msg);
       setStep("error");
     }
-  }, [claudiaAmount, sessionToken, walletAddress, writeContractAsync, refresh]);
+  }, [claudiaAmount, sessionToken, walletAddress, writeContractAsync, publicClient, refresh]);
 
   // ── USDC purchase flow ──
   const handlePurchaseUsdc = useCallback(async () => {
@@ -428,16 +445,19 @@ function CreditsContent({ sessionToken, walletAddress }: { sessionToken: string 
     setFailedTxHash(null);
 
     try {
-      // Approve USDC (not CLAUDIA) for the credits contract
+      // Approve USDC (not CLAUDIA) — wait for confirmation
       setStep("approving");
-      await writeContractAsync({ address: USDC_TOKEN, abi: ERC20_APPROVE_ABI, functionName: "approve", args: [CREDITS_CONTRACT, parsedUsdc] });
+      const approveHash = await writeContractAsync({ address: USDC_TOKEN, abi: ERC20_APPROVE_ABI, functionName: "approve", args: [CREDITS_CONTRACT, parsedUsdc] });
+      if (publicClient) await publicClient.waitForTransactionReceipt({ hash: approveHash, confirmations: 1 });
 
-      // Purchase: swap USDC → CLAUDIA → burn/treasury
+      // Purchase: swap USDC → CLAUDIA → burn/treasury — wait for confirmation
       setStep("purchasing");
       const hash = await writeContractAsync({ address: CREDITS_CONTRACT, abi: CREDITS_PURCHASE_USDC_ABI, functionName: "purchaseWithUsdc", args: [parsedUsdc, minClaudiaOut] });
+      if (publicClient) await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
 
       if (walletAddress) savePendingTx({ txHash: hash, walletAddress, timestamp: Date.now(), amount: usdcAmount });
 
+      // Step 3: Issue credits — tx is now confirmed on-chain
       setStep("issuing");
       const issued = await issueCreditsFromTx(hash, token);
       if (!issued) { setFailedTxHash(hash); throw new Error("Credits not issued after 3 attempts. Save your tx hash."); }
@@ -450,7 +470,7 @@ function CreditsContent({ sessionToken, walletAddress }: { sessionToken: string 
       setErrorMsg(msg.includes("rejected") || msg.includes("denied") ? "Transaction rejected. Try again." : msg);
       setStep("error");
     }
-  }, [usdcAmount, usdcQuote, sessionToken, walletAddress, writeContractAsync, refresh]);
+  }, [usdcAmount, usdcQuote, sessionToken, walletAddress, writeContractAsync, publicClient, refresh]);
 
   const handlePurchase = method === "usdc" ? handlePurchaseUsdc : handlePurchaseClaudia;
 
@@ -626,7 +646,7 @@ function CreditsContent({ sessionToken, walletAddress }: { sessionToken: string 
 
             <button
               onClick={step === "done" || step === "error" ? handleReset : handlePurchase}
-              disabled={isProcessing || (!sessionToken && step === "idle") || (method === "usdc" && !usdcQuote && step === "idle")}
+              disabled={isProcessing || (method === "usdc" && !usdcQuote && step === "idle")}
               className={`w-full py-3 rounded-xl font-heading font-bold text-sm uppercase tracking-wider transition-all ${
                 isProcessing
                   ? "bg-accent/20 text-accent animate-pulse cursor-wait"

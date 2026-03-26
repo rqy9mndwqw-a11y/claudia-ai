@@ -104,14 +104,30 @@ export async function POST(req: NextRequest) {
     // ── Fetch tx receipt from Base (fresh client) ──
     const client = getFreshClient();
 
+    // Fetch receipt with one server-side retry (Base may not have indexed yet)
     let receipt;
-    try {
-      receipt = await client.getTransactionReceipt({
-        hash: txHash as `0x${string}`,
-      });
-    } catch {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        receipt = await client.getTransactionReceipt({
+          hash: txHash as `0x${string}`,
+        });
+        break;
+      } catch {
+        if (attempt === 0) {
+          // Wait 3s and try once more
+          await new Promise((r) => setTimeout(r, 3000));
+          continue;
+        }
+        return NextResponse.json(
+          { error: "Transaction not found on Base. Make sure it's confirmed." },
+          { status: 404 }
+        );
+      }
+    }
+
+    if (!receipt) {
       return NextResponse.json(
-        { error: "Transaction not found on Base. Make sure it's confirmed." },
+        { error: "Transaction not found on Base after retry." },
         { status: 404 }
       );
     }

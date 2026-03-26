@@ -4,7 +4,11 @@ import { useState, useEffect, useCallback } from "react";
 
 const CLAUDIA_TOKEN = "0x98eBd4Ac5d4f7022140c51e03CAc39d9F94CDE9B";
 const BURN_ADDRESS = "0x000000000000000000000000000000000000dEaD";
-const RPC_URL = "https://mainnet.base.org";
+const RPC_URLS = [
+  "https://mainnet.base.org",
+  "https://base.meowrpc.com",
+  "https://1rpc.io/base",
+];
 
 function encodeBalanceOf(addr: string): string {
   return "0x70a08231000000000000000000000000" + addr.replace("0x", "").toLowerCase();
@@ -21,7 +25,8 @@ export function useBurnedAmount(): { burned: number | null; isLoading: boolean }
 
   const fetchBurned = useCallback(async () => {
     try {
-      const res = await fetch(RPC_URL, {
+      const rpcUrl = RPC_URLS[Math.floor(Math.random() * RPC_URLS.length)];
+      const res = await fetch(rpcUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -45,7 +50,7 @@ export function useBurnedAmount(): { burned: number | null; isLoading: boolean }
 
   useEffect(() => {
     fetchBurned();
-    const interval = setInterval(fetchBurned, 30_000);
+    const interval = setInterval(fetchBurned, 5 * 60_000); // 5 min — public RPC rate limits at 30s
     return () => clearInterval(interval);
   }, [fetchBurned]);
 
