@@ -110,7 +110,7 @@ export default function ComparisonPanel({ pools, sessionToken, onClose }: Compar
         }),
       });
 
-      const data = await res.json().catch(() => null);
+      const data = await (res.json() as Promise<any>).catch(() => null);
 
       if (!res.ok) {
         setError(data?.error || "Something went wrong.");

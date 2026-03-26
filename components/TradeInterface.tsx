@@ -95,7 +95,7 @@ export default function TradeInterface() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ apiKey, apiSecret, exchange }),
       });
-      const data = await res.json();
+      const data = await res.json() as any;
 
       if (data.valid) {
         setKeyVerified(true);
@@ -138,7 +138,7 @@ export default function TradeInterface() {
         body: JSON.stringify({ watchlist, address, exchange }),
       });
 
-      const data = await res.json();
+      const data = await res.json() as any;
       if (data.error) {
         setScanError(data.error);
         setStep("watchlist");
@@ -184,7 +184,7 @@ export default function TradeInterface() {
         }),
       });
 
-      const data = await res.json();
+      const data = await res.json() as any;
       if (data.success) {
         let msg = `Order placed: ${data.description}`;
         if (data.closeDescription) msg += `\n${data.closeDescription}`;

@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     const session = await requireAuthAndBalance(req, 100_000);
     if (session instanceof NextResponse) return session;
 
-    const { apiKey, apiSecret, exchange, symbol, side, amount, price, orderType, stopLoss, takeProfit } = await req.json();
+    const { apiKey, apiSecret, exchange, symbol, side, amount, price, orderType, stopLoss, takeProfit } = await req.json() as any;
 
     if (!apiKey || !apiSecret) {
       return NextResponse.json({ error: "Exchange API credentials required" }, { status: 400 });

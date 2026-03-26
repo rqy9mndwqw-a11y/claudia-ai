@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     const session = await requireAuthAndBalance(req);
     if (session instanceof NextResponse) return session;
 
-    const body = await req.json();
+    const body = await req.json() as any;
     const { positions, totalValue } = body;
 
     if (!Array.isArray(positions)) {
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const data = await groqRes.json();
+    const data = await groqRes.json() as any;
     const content = data.choices?.[0]?.message?.content?.trim();
 
     if (!content) {

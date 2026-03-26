@@ -41,7 +41,7 @@ async function krakenPrivate(path: string, apiKey: string, apiSecret: string, pa
     headers: { "API-Key": apiKey, "API-Sign": sig, "Content-Type": "application/x-www-form-urlencoded" },
     body: postData,
   });
-  const data = await res.json();
+  const data = await res.json() as any;
   if (data.error?.length > 0) throw new Error(data.error.join(", "));
   return data.result;
 }
@@ -68,7 +68,7 @@ async function coinbaseRequest(method: string, path: string, apiKey: string, api
     },
     body: method !== "GET" ? bodyStr : undefined,
   });
-  return res.json();
+  return res.json() as Promise<any>;
 }
 
 // ─── Unified Interface ─────────────────────────────────────────────
@@ -86,7 +86,7 @@ export async function verifyExchangeKey(
       }
       return { valid: true, balances };
     } else {
-      const data = await coinbaseRequest("GET", "/v2/accounts?limit=100", apiKey, apiSecret);
+      const data = await coinbaseRequest("GET", "/v2/accounts?limit=100", apiKey, apiSecret) as any;
       const balances: Record<string, number> = {};
       for (const acct of data.data || []) {
         const val = parseFloat(acct.balance?.amount || "0");
@@ -105,7 +105,7 @@ export async function fetchOHLCV(
   if (exchangeId === "kraken") {
     const pair = KRAKEN_PAIRS[symbol.toUpperCase()] || `${symbol.toUpperCase()}USD`;
     const res = await fetch(`${KRAKEN_API}/0/public/OHLC?pair=${pair}&interval=60`);
-    const data = await res.json();
+    const data = await res.json() as any;
     if (data.error?.length > 0) throw new Error(data.error.join(", "));
     const key = Object.keys(data.result).find((k) => k !== "last");
     if (!key) throw new Error(`No data for ${symbol}`);
@@ -122,7 +122,7 @@ export async function fetchOHLCV(
     // Coinbase public candles
     const pair = `${symbol.toUpperCase()}-USD`;
     const res = await fetch(`https://api.exchange.coinbase.com/products/${pair}/candles?granularity=3600`);
-    const candles = await res.json();
+    const candles = await res.json() as any;
     if (!Array.isArray(candles)) throw new Error(`No data for ${symbol}`);
     const sorted = candles.reverse(); // Coinbase returns newest first
     return {
@@ -142,7 +142,7 @@ export async function fetchTicker(
   if (exchangeId === "kraken") {
     const pair = KRAKEN_PAIRS[symbol.toUpperCase()] || `${symbol.toUpperCase()}USD`;
     const res = await fetch(`${KRAKEN_API}/0/public/Ticker?pair=${pair}`);
-    const data = await res.json();
+    const data = await res.json() as any;
     if (data.error?.length > 0) throw new Error(data.error.join(", "));
     const key = Object.keys(data.result)[0];
     const t = data.result[key];
@@ -150,7 +150,7 @@ export async function fetchTicker(
   } else {
     const pair = `${symbol.toUpperCase()}-USD`;
     const res = await fetch(`https://api.exchange.coinbase.com/products/${pair}/ticker`);
-    const t = await res.json();
+    const t = await res.json() as any;
     return { price: parseFloat(t.price || "0"), bid: parseFloat(t.bid || "0"), ask: parseFloat(t.ask || "0"), volume24h: parseFloat(t.volume || "0") };
   }
 }
@@ -198,7 +198,7 @@ export async function placeOrder(
         : { limit_limit_gtc: { base_size: String(params.amount), limit_price: String(params.price) } },
     };
 
-    const data = await coinbaseRequest("POST", "/api/v3/brokerage/orders", apiKey, apiSecret, orderBody);
+    const data = await coinbaseRequest("POST", "/api/v3/brokerage/orders", apiKey, apiSecret, orderBody) as any;
     if (data.error || data.errors) throw new Error(data.error || data.errors?.[0]?.message || "Order failed");
 
     return {

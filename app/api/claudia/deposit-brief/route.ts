@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     const session = await requireAuthAndBalance(req);
     if (session instanceof NextResponse) return session;
 
-    const body = await req.json();
+    const body = await req.json() as any;
 
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ content: null });
     }
 
-    const data = await groqRes.json();
+    const data = await groqRes.json() as any;
     const content = data.choices?.[0]?.message?.content?.trim();
 
     return NextResponse.json({ content: content || null });

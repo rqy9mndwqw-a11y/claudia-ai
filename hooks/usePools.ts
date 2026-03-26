@@ -100,7 +100,7 @@ export function usePools(): PoolsState {
     try {
       const res = await fetch("https://yields.llama.fi/pools");
       if (!res.ok) throw new Error("DeFiLlama is being dramatic. Try again in a minute.");
-      const { data } = await res.json();
+      const { data } = await res.json() as any;
 
       const normalized: Pool[] = data
         .filter(

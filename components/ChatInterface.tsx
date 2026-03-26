@@ -79,7 +79,7 @@ export default function ChatInterface() {
   useEffect(() => {
     fetch("/api/yields")
       .then((r) => r.json())
-      .then((data) => {
+      .then((data: any) => {
         setYields(data.pools || []);
         setYieldsLoading(false);
       })
@@ -128,7 +128,7 @@ export default function ChatInterface() {
     try {
       // Step 1: Get nonce message
       const nonceRes = await fetch("/api/session");
-      const { message } = await nonceRes.json();
+      const { message } = await nonceRes.json() as any;
 
       // Step 2: Sign with wallet
       const signature = await signMessageAsync({ message });
@@ -145,7 +145,7 @@ export default function ChatInterface() {
         return null;
       }
 
-      const { token } = await verifyRes.json();
+      const { token } = await verifyRes.json() as any;
       // Store token as the session — used in Authorization header
       const s = { signature: token, message };
       setSession(s);
@@ -186,7 +186,7 @@ export default function ChatInterface() {
           }),
         });
 
-        const data = await res.json();
+        const data = await res.json() as any;
 
         if (res.status === 429) {
           setMessages([...updated, { role: "assistant", content: "Chill. You're sending too many messages. I'm not going anywhere." }]);
@@ -283,9 +283,12 @@ export default function ChatInterface() {
                 <p className="text-zinc-400 text-base mb-1 font-heading italic">
                   &ldquo;{emptyGreeting}&rdquo;
                 </p>
-                <p className="text-zinc-600 text-xs mb-8 max-w-sm">
-                  Yields, protocols, strategies — or just tell me how much you have.
+                <p className="text-zinc-600 text-xs mb-2 max-w-sm">
+                  General DeFi assistant — good for questions, explanations, and getting started.
                 </p>
+                <a href="/agents" className="text-[11px] text-accent/70 hover:text-accent mb-8 transition-colors">
+                  Need a specialist? Try marketplace agents &rarr;
+                </a>
                 <div className="flex flex-col sm:flex-row gap-2 w-full max-w-lg">
                   {[
                     "I have $1,000 in stables. Where do I put it?",

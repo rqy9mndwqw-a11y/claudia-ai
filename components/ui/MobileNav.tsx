@@ -2,24 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
-
-const NAV_ITEMS = [
-  { href: "/chat", label: "Chat" },
-  { href: "/defi", label: "DeFi" },
-  { href: "/portfolio", label: "Portfolio" },
-  { href: "/trade", label: "Trade" },
-];
+import { NAV_ITEMS } from "@/lib/nav-items";
 
 export default function MobileNav() {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
 
-  // Close on route change
-  useEffect(() => {
-    setIsOpen(false);
-  }, [pathname]);
+  useEffect(() => { setIsOpen(false); }, [pathname]);
 
-  // Close on Escape
   useEffect(() => {
     if (!isOpen) return;
     const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") setIsOpen(false); };
@@ -27,19 +17,13 @@ export default function MobileNav() {
     return () => document.removeEventListener("keydown", handleKey);
   }, [isOpen]);
 
-  // Prevent body scroll when open
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
+    document.body.style.overflow = isOpen ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
   }, [isOpen]);
 
   return (
     <div className="md:hidden">
-      {/* Hamburger button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="p-2 -ml-2 text-zinc-400 hover:text-white transition-colors"
@@ -62,20 +46,14 @@ export default function MobileNav() {
         </svg>
       </button>
 
-      {/* Backdrop + Drawer */}
       {isOpen && (
         <>
-          <div
-            className="fixed inset-0 bg-black/60 z-[80]"
-            onClick={() => setIsOpen(false)}
-          />
+          <div className="fixed inset-0 bg-black/60 z-[80]" onClick={() => setIsOpen(false)} />
           <nav
-            className="fixed top-0 left-0 bottom-0 w-64 bg-bg border-r border-white/10 z-[90]
-                       flex flex-col animate-slide-in"
+            className="fixed top-0 left-0 bottom-0 w-64 bg-bg border-r border-white/10 z-[90] flex flex-col animate-slide-in"
             role="navigation"
             aria-label="Mobile navigation"
           >
-            {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
               <span className="font-heading font-bold text-white text-lg">
                 Claudia <span className="text-accent">AI</span>
@@ -92,10 +70,9 @@ export default function MobileNav() {
               </button>
             </div>
 
-            {/* Nav links */}
             <div className="flex-1 px-3 py-4 space-y-1">
               {NAV_ITEMS.map((item) => {
-                const isActive = pathname === item.href;
+                const isActive = pathname?.startsWith(item.href);
                 return (
                   <a
                     key={item.href}

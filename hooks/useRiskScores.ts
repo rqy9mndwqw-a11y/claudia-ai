@@ -62,11 +62,11 @@ export function useRiskScores(
       });
 
       if (!res.ok) {
-        const data = await res.json().catch(() => null);
+        const data = await (res.json() as Promise<any>).catch(() => null);
         throw new Error(data?.error || "Failed to fetch risk scores");
       }
 
-      const data = await res.json();
+      const data = await res.json() as any;
       if (data.scores) {
         setScores(data.scores);
         lastFetchRef.current = Date.now();

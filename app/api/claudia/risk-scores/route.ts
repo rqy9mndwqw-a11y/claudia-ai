@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     const session = await requireAuthAndBalance(req);
     if (session instanceof NextResponse) return session;
 
-    const body = await req.json();
+    const body = await req.json() as any;
     const { pools } = body;
 
     if (!Array.isArray(pools) || pools.length === 0) {

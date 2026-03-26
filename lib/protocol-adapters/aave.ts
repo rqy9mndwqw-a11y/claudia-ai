@@ -26,7 +26,7 @@ async function fetchEthPrice(): Promise<number> {
       signal: AbortSignal.timeout(5000),
     });
     if (res.ok) {
-      const data = await res.json();
+      const data = await res.json() as any;
       const price = data?.coins?.["coingecko:ethereum"]?.price;
       if (typeof price === "number" && price > 0) return price;
     }
@@ -38,7 +38,7 @@ async function fetchEthPrice(): Promise<number> {
       signal: AbortSignal.timeout(5000),
     });
     if (res.ok) {
-      const data = await res.json();
+      const data = await res.json() as any;
       const price = data?.ethereum?.usd;
       if (typeof price === "number" && price > 0) return price;
     }

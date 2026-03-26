@@ -116,7 +116,7 @@ export async function scorePoolsWithGroq(
     throw new Error(`Groq API error: ${groqRes.status}`);
   }
 
-  const data = await groqRes.json();
+  const data = await groqRes.json() as any;
   const content = data.choices?.[0]?.message?.content?.trim();
 
   if (!content) {

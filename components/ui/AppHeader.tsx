@@ -3,16 +3,12 @@
 import { usePathname } from "next/navigation";
 import WalletConnect from "../WalletConnect";
 import MobileNav from "./MobileNav";
-
-const NAV_ITEMS = [
-  { href: "/chat", label: "Chat" },
-  { href: "/defi", label: "DeFi" },
-  { href: "/portfolio", label: "Portfolio" },
-  { href: "/trade", label: "Trade" },
-];
+import { NAV_ITEMS } from "@/lib/nav-items";
+import { useBurnedAmount } from "@/hooks/useBurnedAmount";
 
 export default function AppHeader() {
   const pathname = usePathname();
+  const { burned } = useBurnedAmount();
 
   return (
     <header className="flex items-center justify-between px-4 py-2.5 border-b border-white/5 bg-bg/80 backdrop-blur-md">
@@ -23,7 +19,7 @@ export default function AppHeader() {
         </a>
         <nav className="hidden md:flex gap-1" aria-label="Main navigation">
           {NAV_ITEMS.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive = pathname?.startsWith(item.href);
             return (
               <a
                 key={item.href}
@@ -41,7 +37,14 @@ export default function AppHeader() {
           })}
         </nav>
       </div>
-      <WalletConnect />
+      <div className="flex items-center gap-3">
+        {burned != null && burned > 0 && (
+          <span className="hidden lg:flex items-center gap-1.5 text-[11px] text-zinc-500 bg-white/5 px-2.5 py-1 rounded-lg">
+            <span className="text-coral">{burned.toLocaleString()}</span> burned
+          </span>
+        )}
+        <WalletConnect />
+      </div>
     </header>
   );
 }

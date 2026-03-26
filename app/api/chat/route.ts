@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
     const session = await requireAuthAndBalance(req);
     if (session instanceof NextResponse) return session;
 
-    const body = await req.json();
+    const body = await req.json() as any;
     const { messages } = body;
 
     if (!messages || !Array.isArray(messages)) {
@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Something went wrong. Try again in a moment." }, { status: 502 });
     }
 
-    const completion = await groqRes.json();
+    const completion = await groqRes.json() as any;
     const reply = completion.choices?.[0]?.message?.content || "I got nothing. Try again.";
 
     return NextResponse.json({ reply });

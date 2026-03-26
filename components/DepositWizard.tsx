@@ -77,7 +77,7 @@ export default function DepositWizard({ pool, sessionToken, onClose }: DepositWi
       }),
     })
       .then((r) => r.json())
-      .then((data) => setClaudiaBrief(data.content || null))
+      .then((data: any) => setClaudiaBrief(data.content || null))
       .catch(() => {})
       .finally(() => setBriefLoading(false));
   }, [sessionToken, pool]);

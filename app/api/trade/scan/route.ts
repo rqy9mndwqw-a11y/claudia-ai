@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
     const session = await requireAuthAndBalance(req, 100_000);
     if (session instanceof NextResponse) return session;
 
-    const { watchlist, exchange } = await req.json();
+    const { watchlist, exchange } = await req.json() as any;
     const exchangeId: ExchangeId = exchange || "kraken";
 
     if (!watchlist || !Array.isArray(watchlist) || watchlist.length === 0 || watchlist.length > 5) {
@@ -136,7 +136,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Analysis failed. Try again." }, { status: 502 });
     }
 
-    const completion = await groqRes.json();
+    const completion = await groqRes.json() as any;
     const analysis = completion.choices?.[0]?.message?.content || "Couldn't analyze. Try again.";
 
     return NextResponse.json({

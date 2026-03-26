@@ -57,7 +57,7 @@ export default function PortfolioOverview({
         }),
       });
 
-      const data = await res.json().catch(() => null);
+      const data = await (res.json() as Promise<any>).catch(() => null);
       if (res.ok && data?.content) {
         setClaudiaCheck(data.content);
       } else {

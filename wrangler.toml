@@ -10,3 +10,25 @@ binding = "ASSETS"
 [vars]
 NEXT_PUBLIC_CLAUDIA_CONTRACT = "0x98eBd4Ac5d4f7022140c51e03CAc39d9F94CDE9B"
 NEXT_PUBLIC_MIN_CLAUDIA_BALANCE = "10000"
+
+# ── Agent Marketplace ──
+# Workers AI binding (requires paid Workers plan)
+[ai]
+binding = "AI"
+
+# D1 database — staging by default for local dev (wrangler dev)
+# Production override is in [env.production] below
+[[d1_databases]]
+binding = "DB"
+database_name = "claudia-marketplace-staging"
+database_id = "5250cb5b-f64f-44ca-97a2-6dd7610a9432"
+
+# ── Production environment (used by GitHub Actions deploy) ──
+# name override keeps the same worker URL (claudia-ai, not claudia-ai-production)
+[env.production]
+name = "claudia-ai"
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "claudia-marketplace"
+database_id = "5454cf38-3b0d-4966-b861-91ca85674de2"

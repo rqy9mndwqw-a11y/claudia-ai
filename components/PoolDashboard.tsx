@@ -106,7 +106,7 @@ export default function PoolDashboard({ poolsState, sessionToken }: PoolDashboar
         body: JSON.stringify({ pool }),
       });
 
-      const data = await res.json().catch(() => null);
+      const data = await (res.json() as Promise<any>).catch(() => null);
 
       if (!res.ok) {
         setClaudiaMessage(

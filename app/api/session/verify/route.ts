@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { address, signature, message } = await req.json();
+    const { address, signature, message } = await req.json() as any;
 
     if (!address || !signature || !message) {
       return NextResponse.json({ error: "Missing authentication fields" }, { status: 400 });

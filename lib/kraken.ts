@@ -67,7 +67,7 @@ export async function fetchOHLCV(
   const res = await fetch(
     `${KRAKEN_API}/0/public/OHLC?pair=${pair}&interval=${interval}`
   );
-  const data = await res.json();
+  const data = await res.json() as any;
 
   if (data.error?.length > 0) {
     throw new Error(`Kraken API error: ${data.error.join(", ")}`);
@@ -93,7 +93,7 @@ export async function fetchTicker(
 ): Promise<{ price: number; bid: number; ask: number; volume24h: number }> {
   const pair = getKrakenPair(symbol);
   const res = await fetch(`${KRAKEN_API}/0/public/Ticker?pair=${pair}`);
-  const data = await res.json();
+  const data = await res.json() as any;
 
   if (data.error?.length > 0) {
     throw new Error(`Kraken API error: ${data.error.join(", ")}`);
@@ -168,7 +168,7 @@ export async function placeOrder(
     body: postData,
   });
 
-  const data = await res.json();
+  const data = await res.json() as any;
 
   if (data.error?.length > 0) {
     throw new Error(data.error.join(", "));
@@ -236,7 +236,7 @@ export async function verifyApiKey(
     body: postData,
   });
 
-  const data = await res.json();
+  const data = await res.json() as any;
 
   if (data.error?.length > 0) {
     return { valid: false, balances: {} };

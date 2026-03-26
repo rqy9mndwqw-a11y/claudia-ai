@@ -31,7 +31,7 @@ export async function getYields(): Promise<YieldPool[]> {
     const res = await fetch("https://yields.llama.fi/pools");
     if (!res.ok) return cachedPools;
 
-    const { data } = await res.json();
+    const { data } = await res.json() as any;
 
     cachedPools = data
       .filter(
