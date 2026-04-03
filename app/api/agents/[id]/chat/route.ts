@@ -16,6 +16,7 @@ import { fetchAgentContext } from "@/lib/data/agent-data";
 import { executeAgentPipeline, directGroqFallback } from "@/lib/agent-pipeline";
 import { fetchPortfolioContext, formatPortfolioContext } from "@/lib/data/portfolio-context";
 import { getWatchedWallets } from "@/lib/portfolio/multiple-wallets";
+import { writeFeedPost } from "@/lib/feed/post-writer";
 
 
 /**
@@ -324,6 +325,46 @@ export async function POST(
       suggestedAgent: suggestedAgent?.id || null,
       timestamp: Date.now(),
     }));
+
+    // Fire-and-forget: post safety-check results to feed (only extremes)
+    if (agentId === "claudia-safety-check" && cleanReply.length > 20) {
+      const safetyScoreMatch = cleanReply.match(/SAFETY SCORE:\s*(\d+)/);
+      const safetyVerdictMatch = cleanReply.match(/VERDICT:\s*(SAFE|CAUTION|RISKY|AVOID|RUN)/i);
+      const symbolMatch = cleanReply.match(/CONTRACT:\s*\$?(\w+)/);
+      const safetyScore = safetyScoreMatch ? parseInt(safetyScoreMatch[1]) : undefined;
+      if (safetyScore !== undefined && (safetyScore <= 4 || safetyScore >= 8)) {
+        const feedVerdict = safetyScore >= 8 ? "Buy" as const : "Avoid" as const;
+        writeFeedPost(db as unknown as D1Database, {
+          post_type: "agent_post",
+          agent_job: "safety_check",
+          title: `Safety check: $${symbolMatch?.[1] || "???"}`,
+          content: cleanReply.slice(0, 280),
+          verdict: feedVerdict,
+          score: safetyScore,
+          risk: safetyScore <= 1 ? "Very High" : safetyScore <= 3 ? "High" : safetyScore <= 5 ? "Medium" : "Low",
+          token_symbol: symbolMatch?.[1] || undefined,
+        }).catch(() => {});
+      }
+    }
+
+    // Fire-and-forget: post dev-check results to feed
+    if (agentId === "claudia-dev-check" && cleanReply.length > 20) {
+      const scoreMatch = cleanReply.match(/REPUTATION SCORE:\s*(\d+)/);
+      const verdictMatch = cleanReply.match(/VERDICT:\s*(Trusted|Caution|Avoid|Unknown)/i);
+      const score = scoreMatch ? parseInt(scoreMatch[1]) : undefined;
+      const feedVerdict = verdictMatch?.[1] === "Trusted" ? "Buy" as const
+        : verdictMatch?.[1] === "Avoid" ? "Avoid" as const
+        : "Hold" as const;
+      writeFeedPost(db as unknown as D1Database, {
+        post_type: "agent_post",
+        agent_job: "dev_check",
+        title: `Dev check: ${message.match(/0x[a-fA-F0-9]{6,8}/)?.[0] || "wallet"}...`,
+        content: cleanReply.slice(0, 280),
+        verdict: feedVerdict,
+        score,
+        risk: score && score <= 3 ? "Very High" : score && score <= 5 ? "High" : score && score <= 7 ? "Medium" : "Low",
+      }).catch(() => {});
+    }
 
     return NextResponse.json({
       reply: cleanReply,

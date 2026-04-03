@@ -20,9 +20,11 @@ export const AGENT_CREDIT_TIERS: Record<string, AgentTier> = {
   "claudia-security-check": 2,
   "claudia-onchain-sleuth": 2,
   "claudia-pulse": 2,
+  "claudia-safety-check": 2,
 
   // Tier 3 — 3 credits — data-heavy agents (multiple data sources + AI)
   "claudia-memecoin-radar": 3,
+  "claudia-dev-check": 3,
 };
 
 /** Get credit cost for a single agent message. Defaults to 1 if agent not found. */

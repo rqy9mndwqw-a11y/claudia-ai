@@ -19,21 +19,47 @@ export const AGENT_NAME_TO_ID: Record<string, string> = {
   "security checker": "claudia-security-check",
   "pulse": "claudia-pulse",
   "sentiment": "claudia-pulse",
+  "dev check": "claudia-dev-check",
+  "dev investigator": "claudia-dev-check",
+  "rug check": "claudia-dev-check",
+  "safety check": "claudia-safety-check",
+  "contract check": "claudia-safety-check",
+  "honeypot check": "claudia-safety-check",
 };
 
 export const AGENT_ID_TO_INFO: Record<string, { name: string; icon: string; description: string }> = {
   "claudia-defi-101": { name: "DeFi Explainer", icon: "📚", description: "DeFi concepts in plain English" },
   "claudia-yield-scout": { name: "Yield Scout", icon: "🌾", description: "Yield farming analysis" },
   "claudia-gas-guru": { name: "Gas Optimizer", icon: "⛽", description: "Gas costs and L2 optimization" },
-  "claudia-chart-reader": { name: "Chart Reader", icon: "📊", description: "Technical analysis" },
-  "claudia-risk-check": { name: "Risk Manager", icon: "🛡️", description: "Risk assessment and position sizing" },
-  "claudia-token-analyst": { name: "Token Analyst", icon: "🔬", description: "Tokenomics deep-dives" },
-  "claudia-onchain-sleuth": { name: "On-Chain Sleuth", icon: "🔍", description: "Blockchain forensics" },
+  "claudia-chart-reader": { name: "Chart Read", icon: "📊", description: "Technical analysis and chart patterns" },
+  "claudia-risk-check": { name: "Risk Check", icon: "🛡️", description: "Risk assessment and position sizing" },
+  "claudia-token-analyst": { name: "Token Intel", icon: "🔍", description: "Tokenomics deep-dives and fundamentals" },
+  "claudia-onchain-sleuth": { name: "On-Chain Sleuth", icon: "🔎", description: "Blockchain forensics and wallet tracking" },
   "claudia-memecoin-radar": { name: "Memecoin Radar", icon: "🐸", description: "Memecoin trends and rug checks" },
   "claudia-airdrop-hunter": { name: "Airdrop Hunter", icon: "🪂", description: "Airdrop farming strategies" },
-  "claudia-base-guide": { name: "Base Chain Guide", icon: "🔵", description: "Base L2 ecosystem" },
+  "claudia-base-guide": { name: "Base Guide", icon: "🔵", description: "Base L2 ecosystem navigation" },
   "claudia-security-check": { name: "Security Checker", icon: "🔒", description: "Wallet and contract security" },
-  "claudia-pulse": { name: "Pulse", icon: "📡", description: "Social sentiment and crowd behavior analysis" },
+  "claudia-pulse": { name: "Market Pulse", icon: "🌊", description: "Social sentiment and crowd behavior" },
+  "claudia-dev-check": { name: "Dev Check", icon: "🕵️", description: "Developer wallet reputation and rug detection" },
+  "claudia-safety-check": { name: "Safety Check", icon: "🔐", description: "Contract scan — honeypots, hidden mints, LP locks" },
+};
+
+/** Category color mapping for UI display. */
+export const AGENT_CATEGORY_COLOR: Record<string, string> = {
+  "claudia-defi-101": "emerald",
+  "claudia-yield-scout": "green",
+  "claudia-gas-guru": "orange",
+  "claudia-chart-reader": "blue",
+  "claudia-risk-check": "amber",
+  "claudia-token-analyst": "purple",
+  "claudia-onchain-sleuth": "indigo",
+  "claudia-memecoin-radar": "pink",
+  "claudia-airdrop-hunter": "teal",
+  "claudia-base-guide": "sky",
+  "claudia-security-check": "red",
+  "claudia-pulse": "teal",
+  "claudia-dev-check": "red",
+  "claudia-safety-check": "red",
 };
 
 // ── Per-agent handoff rules — specific about WHEN to suggest each partner ──

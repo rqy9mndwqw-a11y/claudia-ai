@@ -125,6 +125,16 @@ export function formatDataContextForPrompt(context: AgentDataContext): string {
     sections.push(context.pulseContext);
   }
 
+  // Dev wallet reputation context
+  if (context.devCheckContext) {
+    sections.push(context.devCheckContext);
+  }
+
+  // Contract safety check context
+  if (context.safetyCheckContext) {
+    sections.push(context.safetyCheckContext);
+  }
+
   // Portfolio context (user opted in)
   if (context.portfolioContext) {
     sections.push(context.portfolioContext);

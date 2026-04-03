@@ -17,6 +17,10 @@ import { getBaseGasPrice, type GasData } from "./gas";
 import { getYields, type YieldPool } from "../yields-cache";
 import { searchToken } from "./dexscreener";
 import { fetchPulseContext, formatPulseContext } from "./pulse-data";
+import { fetchDevWalletData, extractAddressFromQuery } from "./dev-wallet-data";
+import { buildDevCheckPrompt } from "@/lib/agents/prompts/dev-check";
+import { fetchSafetyCheckData, calculateSafetyScore } from "./safety-check-data";
+import { buildSafetyCheckPrompt } from "@/lib/agents/prompts/safety-check";
 
 // ── Types ──
 
@@ -45,6 +49,8 @@ export interface AgentDataContext {
   dexScreenerSecurity?: string;
   portfolioContext?: string;
   pulseContext?: string;
+  devCheckContext?: string;
+  safetyCheckContext?: string;
 }
 
 // ── BTC Market Context — always fetched for analysis agents ──
@@ -225,6 +231,25 @@ const AGENT_DATA_MAP: Record<string, DataFetcher> = {
   "claudia-pulse": async (message) => {
     const pulse = await fetchPulseContext(message);
     return { prices: pulse.prices, pulseContext: formatPulseContext(pulse) };
+  },
+
+  "claudia-dev-check": async (message) => {
+    const address = extractAddressFromQuery(message);
+    if (!address) {
+      return { devCheckContext: "No wallet or contract address found in query. Ask the user to provide a 0x address." };
+    }
+    const data = await fetchDevWalletData(address);
+    return { devCheckContext: buildDevCheckPrompt(data) };
+  },
+
+  "claudia-safety-check": async (message) => {
+    const address = extractAddressFromQuery(message);
+    if (!address) {
+      return { safetyCheckContext: "Paste a contract address to check. Format: 0x..." };
+    }
+    const data = await fetchSafetyCheckData(address);
+    const result = calculateSafetyScore(data);
+    return { safetyCheckContext: buildSafetyCheckPrompt(data, result) };
   },
 
   "claudia-security-check": async (message) => {
