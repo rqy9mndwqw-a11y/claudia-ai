@@ -1,8 +1,10 @@
 export const CLAUDIA_CONTRACT = (process.env.NEXT_PUBLIC_CLAUDIA_CONTRACT ||
   "0x98eBd4Ac5d4f7022140c51e03CAc39d9F94CDE9B") as `0x${string}`;
 
+// Default minimum balance — kept in sync with GATE_THRESHOLDS.dashboard (1,000,000)
+// Env var override preserved for flexibility
 export const MIN_CLAUDIA_BALANCE = BigInt(
-  process.env.NEXT_PUBLIC_MIN_CLAUDIA_BALANCE || "10000"
+  process.env.NEXT_PUBLIC_MIN_CLAUDIA_BALANCE || "1000000"
 );
 
 // Standard ERC-20 ABI — only the functions we need

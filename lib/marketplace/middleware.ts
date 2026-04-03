@@ -2,39 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifySessionToken, type SessionPayload } from "../session-token";
 import { getDB, getOrCreateUser } from "./db";
 import type { UserRow } from "./types";
-import { TIER_THRESHOLDS } from "./types";
+import { TIER_THRESHOLDS, FEATURE_NAMES } from "../gate-thresholds";
 import { verifyTokenBalance } from "../verify-token";
+import { checkRateLimit } from "../rate-limit";
 
-/**
- * Rate limit store for marketplace routes.
- * Keyed by wallet address (not IP) for per-user limiting.
- */
-const rateLimitStore: Record<string, { count: number; resetAt: number }> = {};
-
-function checkWalletRateLimit(
+async function checkWalletRateLimit(
   address: string,
   prefix: string,
   maxRequests: number,
   windowMs: number
-): NextResponse | null {
-  const key = `${prefix}:${address}`;
-  const now = Date.now();
-  const entry = rateLimitStore[key];
-
-  if (!entry || now > entry.resetAt) {
-    rateLimitStore[key] = { count: 1, resetAt: now + windowMs };
-    return null;
-  }
-
-  if (entry.count >= maxRequests) {
-    const retryAfter = Math.ceil((entry.resetAt - now) / 1000);
+): Promise<NextResponse | null> {
+  const rl = await checkRateLimit(`${prefix}:${address}`, maxRequests, windowMs);
+  if (!rl.allowed) {
+    const retryAfter = Math.ceil((rl.resetAt - Date.now()) / 1000);
     return NextResponse.json(
       { error: "Too many requests. Slow down." },
       { status: 429, headers: { "Retry-After": String(retryAfter) } }
     );
   }
-
-  entry.count++;
   return null;
 }
 
@@ -68,8 +53,8 @@ export async function requireMarketplaceAuth(
     return NextResponse.json({ error: "Invalid or expired session" }, { status: 401 });
   }
 
-  // Per-wallet rate limit
-  const rlError = checkWalletRateLimit(
+  // Per-wallet rate limit (D1-backed, works across isolates)
+  const rlError = await checkWalletRateLimit(
     session.address,
     options.ratePrefix,
     options.rateMax ?? 30,
@@ -114,9 +99,10 @@ export async function requireTier(
     if (!authorized) {
       return NextResponse.json(
         {
-          error: `Requires ${requiredBalance.toLocaleString()} $CLAUDIA. You have ${Math.floor(balance).toLocaleString()}.`,
+          error: "Insufficient CLAUDIA balance",
           required: requiredBalance,
           current: Math.floor(balance),
+          feature: FEATURE_NAMES[`marketplace_${minimumTier}`] || "Agent Marketplace",
         },
         { status: 403 }
       );

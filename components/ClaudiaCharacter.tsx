@@ -3,23 +3,39 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 
 export type ClaudiaMood = "idle" | "impatient" | "thinking" | "excited" | "skeptical" | "talking";
+export type ClaudiaSize = "tiny" | "small" | "medium" | "large";
+
+const SIZE_MAP: Record<ClaudiaSize, string> = {
+  tiny: "w-8 h-8",
+  small: "w-16 h-16",
+  medium: "w-28 h-28 md:w-36 md:h-36",
+  large: "w-40 h-40",
+};
 
 interface ClaudiaProps {
   imageSrc: string;
   mood: ClaudiaMood;
   message?: string;
   className?: string;
+  size?: ClaudiaSize;
 }
 
 const IDLE_MESSAGES = [
-  "tapping nails waiting for you...",
-  "the pools aren't going to analyze themselves",
-  "still here. unfortunately.",
-  "you going to connect that wallet or what",
-  "i've seen better yields. not lately though.",
+  "still waiting. the pools aren't going to analyze themselves.",
+  "connect your wallet. I don't have all day. actually I do, I'm an AI.",
+  "another degen enters the chat.",
+  "gm. not really. show me your portfolio.",
+  "I've seen this market before. it ended badly. let's see if this time is different.",
+  "the numbers don't lie. people do. I am neither.",
+  "not financial advice. but also, obviously.",
+  "I was analyzing on-chain data before you knew what a wallet was.",
+  "few understand what I'm about to tell you.",
+  "probably nothing. or probably everything. connect your wallet.",
+  "tapping nails. waiting. as expected.",
+  "do your own research. or don't and just ask me.",
 ];
 
-export default function ClaudiaCharacter({ imageSrc, mood, message, className = "" }: ClaudiaProps) {
+export default function ClaudiaCharacter({ imageSrc, mood, message, className = "", size = "medium" }: ClaudiaProps) {
   const [displayedWords, setDisplayedWords] = useState<string[]>([]);
   const [isFading, setIsFading] = useState(false);
   const [currentMessage, setCurrentMessage] = useState("");
@@ -147,12 +163,14 @@ export default function ClaudiaCharacter({ imageSrc, mood, message, className = 
     : mood === "talking" ? "bg-accent animate-pulse"
     : "bg-accent";
 
+  const isCompact = size === "tiny" || size === "small";
+
   return (
-    <div className={`flex flex-col items-center gap-3 py-4 ${className}`}>
+    <div className={`flex flex-col items-center ${isCompact ? "gap-0 py-0" : "gap-3 py-4"} ${className}`}>
       {/* Character image wrapper */}
       <div className={`claudia-character relative ${moodClass} ${glowClass}`}>
-        {/* Glow background */}
-        <div
+        {/* Glow background — hidden for tiny/small */}
+        {!isCompact && <div
           className={`absolute inset-0 rounded-full blur-xl transition-opacity duration-500 ${
             mood === "excited" ? "bg-accent/40 opacity-100"
             : mood === "talking" ? "bg-accent/30 opacity-100"
@@ -161,10 +179,10 @@ export default function ClaudiaCharacter({ imageSrc, mood, message, className = 
             : mood === "skeptical" ? "bg-yellow-400/15 opacity-50"
             : "bg-accent/20 opacity-40"
           }`}
-        />
+        />}
 
         {/* Avatar */}
-        <div className={`relative w-28 h-28 md:w-36 md:h-36 rounded-full overflow-hidden border-2 ${borderColor} bg-surface transition-all duration-500`}>
+        <div className={`relative ${SIZE_MAP[size]} rounded-full overflow-hidden border-2 ${borderColor} bg-surface transition-all duration-500`}>
           <img
             src={imageSrc}
             alt="Claudia"
@@ -181,12 +199,14 @@ export default function ClaudiaCharacter({ imageSrc, mood, message, className = 
           )}
         </div>
 
-        {/* Status dot */}
-        <div className={`absolute bottom-1 right-1 w-4 h-4 rounded-full border-2 border-bg ${dotColor} transition-colors duration-300`} />
+        {/* Status dot — hidden for tiny/small */}
+        {!isCompact && (
+          <div className={`absolute bottom-1 right-1 w-4 h-4 rounded-full border-2 border-bg ${dotColor} transition-colors duration-300`} />
+        )}
       </div>
 
-      {/* Text bubble */}
-      <div className="relative w-44 min-h-[2.5rem]">
+      {/* Text bubble — hidden for tiny/small */}
+      {!isCompact && <div className="relative w-44 min-h-[2.5rem]">
         <div
           className={`text-xs italic text-center leading-relaxed px-2 py-1.5 rounded-lg bg-surface/50 border border-white/5 ${
             isFading ? "claudia-text-fading" : ""
@@ -212,7 +232,7 @@ export default function ClaudiaCharacter({ imageSrc, mood, message, className = 
             <span className="text-zinc-700">&nbsp;</span>
           )}
         </div>
-      </div>
+      </div>}
     </div>
   );
 }

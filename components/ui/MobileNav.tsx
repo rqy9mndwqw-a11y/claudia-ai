@@ -50,7 +50,7 @@ export default function MobileNav() {
         <>
           <div className="fixed inset-0 bg-black/60 z-[80]" onClick={() => setIsOpen(false)} />
           <nav
-            className="fixed top-0 left-0 bottom-0 w-64 bg-bg border-r border-white/10 z-[90] flex flex-col animate-slide-in"
+            className="fixed top-0 left-0 bottom-0 w-56 bg-bg border-r border-white/10 z-[90] flex flex-col animate-slide-in"
             role="navigation"
             aria-label="Mobile navigation"
           >

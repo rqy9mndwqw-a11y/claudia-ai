@@ -1,11 +1,17 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 /**
  * GET /api/health — Health check endpoint
  * Verifies D1 connection and Workers AI binding.
  * Never returns sensitive info.
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const ip = req.headers.get("cf-connecting-ip") || "unknown";
+  const rl = await checkRateLimit(`health:${ip}`, 30, 60_000);
+  if (!rl.allowed) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
   const checks: Record<string, "ok" | "error" | "unavailable"> = {
     status: "ok",
     d1: "unavailable",
@@ -43,6 +49,5 @@ export async function GET() {
     status: allOk ? "healthy" : "degraded",
     checks,
     version: "1.0.0",
-    environment: process.env.NODE_ENV || "production",
   }, { status: allOk ? 200 : 503 });
 }

@@ -259,7 +259,7 @@ export default function PoolDashboard({ poolsState, sessionToken }: PoolDashboar
               placeholder="Search protocol or token..."
               className="text-xs bg-surface border border-white/10 rounded-lg px-3 py-1.5
                          text-white placeholder-zinc-600 outline-none focus:border-accent/30
-                         w-48 transition-colors"
+                         w-full md:w-48 transition-colors"
             />
           </div>
 

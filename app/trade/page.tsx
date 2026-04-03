@@ -3,9 +3,10 @@
 import { useAccount } from "wagmi";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import AppHeader from "@/components/ui/AppHeader";
+import DashboardLayout from "@/components/ui/DashboardLayout";
 import TokenGate from "@/components/TokenGate";
 import TradeInterface from "@/components/TradeInterface";
+import { GATE_THRESHOLDS } from "@/lib/gate-thresholds";
 
 export default function TradePage() {
   const { isConnected } = useAccount();
@@ -21,11 +22,10 @@ export default function TradePage() {
   }, [isConnected, router]);
 
   return (
-    <main className="h-screen flex flex-col bg-bg">
-      <AppHeader />
-      <TokenGate minBalance={100_000} featureName="Claudia Trading Bot">
+    <DashboardLayout>
+      <TokenGate minBalance={GATE_THRESHOLDS.trading} featureName="Claudia Trading Bot">
         <TradeInterface />
       </TokenGate>
-    </main>
+    </DashboardLayout>
   );
 }

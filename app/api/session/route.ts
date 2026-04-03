@@ -9,13 +9,13 @@ import { checkRateLimit } from "@/lib/rate-limit";
 export async function GET(req: NextRequest) {
   // Rate limit nonce generation to prevent nonce flooding
   const ip = req.headers.get("cf-connecting-ip") || "unknown";
-  const rl = checkRateLimit(`nonce:${ip}`, 10, 60_000);
+  const rl = await checkRateLimit(`nonce:${ip}`, 10, 60_000);
   if (!rl.allowed) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   }
 
   const nonce = crypto.randomUUID();
-  storeNonce(nonce);
+  await storeNonce(nonce);
 
   // Structured SIWE-like message with domain binding
   const message = [

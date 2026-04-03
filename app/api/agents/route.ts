@@ -30,20 +30,26 @@ export async function GET(req: NextRequest) {
     const agents = await listPublicAgents(db, { category, search, limit, offset });
 
     // Strip system_prompt from public listing (don't expose creator's IP)
-    const publicAgents: AgentPublic[] = agents.map((a) => ({
-      id: a.id,
-      name: a.name,
-      description: a.description,
-      category: a.category,
-      icon: a.icon,
-      model: a.model,
-      cost_per_chat: a.cost_per_chat,
-      creator_address: a.creator_address,
-      usage_count: a.usage_count,
-      upvotes: a.upvotes,
-      downvotes: a.downvotes,
-      created_at: a.created_at,
-    }));
+    const publicAgents: AgentPublic[] = agents.map((a) => {
+      let example_prompts: string[] = [];
+      try { example_prompts = JSON.parse((a as any).example_prompts || "[]"); } catch {}
+      return {
+        id: a.id,
+        name: a.name,
+        description: a.description,
+        category: a.category,
+        icon: a.icon,
+        model: a.model,
+        cost_per_chat: a.cost_per_chat,
+        creator_address: a.creator_address,
+        usage_count: a.usage_count,
+        upvotes: a.upvotes,
+        downvotes: a.downvotes,
+        status: a.status,
+        created_at: a.created_at,
+        example_prompts,
+      };
+    });
 
     return NextResponse.json({
       agents: publicAgents,

@@ -3,8 +3,8 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useWriteContract, usePublicClient } from "wagmi";
 import { parseUnits, formatUnits } from "viem";
-import AppHeader from "@/components/ui/AppHeader";
-import TokenGate from "@/components/TokenGate";
+import { base } from "wagmi/chains";
+import DashboardLayout from "@/components/ui/DashboardLayout";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import Badge from "@/components/ui/Badge";
 import { useSessionToken } from "@/hooks/useSessionToken";
@@ -294,9 +294,17 @@ function CreditsContent({ sessionToken, walletAddress }: { sessionToken: string 
   const quoteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { writeContractAsync } = useWriteContract();
-  const publicClient = usePublicClient();
+  const publicClient = usePublicClient({ chainId: base.id });
 
   const isProcessing = step !== "idle" && step !== "done" && step !== "error";
+
+  // Scroll step indicator into view on step change
+  const stepRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (step !== "idle" && stepRef.current) {
+      stepRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [step]);
 
   // Debounced USDC quote fetch
   useEffect(() => {
@@ -400,16 +408,22 @@ function CreditsContent({ sessionToken, walletAddress }: { sessionToken: string 
     const parsed = parseUnits(String(num), 18);
     setFailedTxHash(null);
 
+    if (!publicClient) {
+      setErrorMsg("Wallet connection lost. Please reconnect.");
+      setStep("error");
+      return;
+    }
+
     try {
       // Step 1: Approve — submitted to mempool
       setStep("approving");
-      const approveHash = await writeContractAsync({ address: CLAUDIA_TOKEN, abi: ERC20_APPROVE_ABI, functionName: "approve", args: [CREDITS_CONTRACT, parsed] });
+      const approveHash = await writeContractAsync({ address: CLAUDIA_TOKEN, abi: ERC20_APPROVE_ABI, functionName: "approve", args: [CREDITS_CONTRACT, parsed], chainId: base.id });
       // Wait for approve to be MINED (not just submitted)
       if (publicClient) await publicClient.waitForTransactionReceipt({ hash: approveHash, confirmations: 1 });
 
       // Step 2: Purchase — submitted to mempool
       setStep("purchasing");
-      const hash = await writeContractAsync({ address: CREDITS_CONTRACT, abi: CREDITS_PURCHASE_CLAUDIA_ABI, functionName: "purchaseWithClaudia", args: [parsed] });
+      const hash = await writeContractAsync({ address: CREDITS_CONTRACT, abi: CREDITS_PURCHASE_CLAUDIA_ABI, functionName: "purchaseWithClaudia", args: [parsed], chainId: base.id });
       // Wait for purchase to be MINED before calling API
       if (publicClient) await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
 
@@ -440,19 +454,25 @@ function CreditsContent({ sessionToken, walletAddress }: { sessionToken: string 
     if (!usdcQuote) { setErrorMsg("No quote available. Wait for quote to load."); setStep("error"); return; }
 
     const parsedUsdc = parseUnits(String(num), 6);
-    // 2% slippage tolerance on the quoted amount
-    const minClaudiaOut = (usdcQuote.claudia * 98n) / 100n;
+    // 5% slippage tolerance on the quoted amount
+    const minClaudiaOut = (usdcQuote.claudia * 95n) / 100n;
     setFailedTxHash(null);
+
+    if (!publicClient) {
+      setErrorMsg("Wallet connection lost. Please reconnect.");
+      setStep("error");
+      return;
+    }
 
     try {
       // Approve USDC (not CLAUDIA) — wait for confirmation
       setStep("approving");
-      const approveHash = await writeContractAsync({ address: USDC_TOKEN, abi: ERC20_APPROVE_ABI, functionName: "approve", args: [CREDITS_CONTRACT, parsedUsdc] });
+      const approveHash = await writeContractAsync({ address: USDC_TOKEN, abi: ERC20_APPROVE_ABI, functionName: "approve", args: [CREDITS_CONTRACT, parsedUsdc], chainId: base.id });
       if (publicClient) await publicClient.waitForTransactionReceipt({ hash: approveHash, confirmations: 1 });
 
       // Purchase: swap USDC → CLAUDIA → burn/treasury — wait for confirmation
       setStep("purchasing");
-      const hash = await writeContractAsync({ address: CREDITS_CONTRACT, abi: CREDITS_PURCHASE_USDC_ABI, functionName: "purchaseWithUsdc", args: [parsedUsdc, minClaudiaOut] });
+      const hash = await writeContractAsync({ address: CREDITS_CONTRACT, abi: CREDITS_PURCHASE_USDC_ABI, functionName: "purchaseWithUsdc", args: [parsedUsdc, minClaudiaOut], chainId: base.id });
       if (publicClient) await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
 
       if (walletAddress) savePendingTx({ txHash: hash, walletAddress, timestamp: Date.now(), amount: usdcAmount });
@@ -489,7 +509,7 @@ function CreditsContent({ sessionToken, walletAddress }: { sessionToken: string 
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="max-w-2xl mx-auto px-5 py-8 space-y-8">
+      <div className="max-w-2xl mx-auto px-5 py-8 space-y-8 pb-24 md:pb-8">
 
         {/* Pending purchase recovery banner */}
         <PendingTxBanner
@@ -499,11 +519,11 @@ function CreditsContent({ sessionToken, walletAddress }: { sessionToken: string 
         />
 
         {/* Balance card */}
-        <div className="bg-surface rounded-xl border border-white/5 p-6">
+        <div className="bg-surface rounded-xl border border-white/5 p-4 md:p-6">
           <div className="flex items-center justify-between mb-4">
             <div>
               <p className="text-[11px] text-zinc-500 uppercase tracking-wider font-bold">Credit Balance</p>
-              <p className="text-white font-heading font-bold text-4xl mt-1">{credits.toLocaleString()}</p>
+              <p className="text-white font-heading font-bold text-3xl md:text-4xl mt-1">{credits.toLocaleString()}</p>
             </div>
             <div className="text-right">
               <p className="text-[11px] text-zinc-500 uppercase tracking-wider font-bold">Tier</p>
@@ -518,10 +538,10 @@ function CreditsContent({ sessionToken, walletAddress }: { sessionToken: string 
 
           {/* Tier thresholds */}
           <div className="mt-4 pt-4 border-t border-white/5">
-            <div className="flex justify-between text-[11px] text-zinc-500 mb-1.5">
+            <div className="flex flex-wrap gap-y-1 justify-between text-[11px] text-zinc-500 mb-1.5">
               {Object.entries(TIER_THRESHOLDS).map(([t, threshold]) => (
                 <span key={t} className={tier === t ? "text-accent font-bold" : ""}>
-                  {t.toUpperCase()} ({(threshold / 1000).toFixed(0)}K)
+                  {t.toUpperCase()} ({threshold >= 1_000_000 ? `${(threshold / 1_000_000).toFixed(0)}M` : `${(threshold / 1000).toFixed(0)}K`})
                 </span>
               ))}
             </div>
@@ -529,7 +549,7 @@ function CreditsContent({ sessionToken, walletAddress }: { sessionToken: string 
         </div>
 
         {/* Purchase section */}
-        <div className="bg-surface rounded-xl border border-white/5 p-6">
+        <div className="bg-surface rounded-xl border border-white/5 p-4 md:p-6">
           <h2 className="font-heading font-bold text-white text-lg mb-4">Buy Credits</h2>
 
           <div className="space-y-4">
@@ -609,7 +629,7 @@ function CreditsContent({ sessionToken, walletAddress }: { sessionToken: string 
                         ≈ <span className="text-white font-bold">{Number(formatUnits(usdcQuote.claudia, 18)).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span> CLAUDIA
                         {" → "}<span className="text-accent font-bold">{Number(usdcQuote.credits).toLocaleString()}</span> credits
                       </p>
-                      <p className="text-[11px] text-zinc-600">2% max slippage applied</p>
+                      <p className="text-[11px] text-zinc-600">5% max slippage applied</p>
                     </div>
                   ) : Number(usdcAmount) >= 10 ? (
                     <p className="text-[11px] text-zinc-500">Unable to get quote</p>
@@ -624,7 +644,9 @@ function CreditsContent({ sessionToken, walletAddress }: { sessionToken: string 
               </div>
             )}
 
-            <StepIndicator step={step} method={method} />
+            <div ref={stepRef}>
+              <StepIndicator step={step} method={method} />
+            </div>
 
             {step === "error" && (
               <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 space-y-2">
@@ -644,26 +666,29 @@ function CreditsContent({ sessionToken, walletAddress }: { sessionToken: string 
               </div>
             )}
 
-            <button
-              onClick={step === "done" || step === "error" ? handleReset : handlePurchase}
-              disabled={isProcessing || (method === "usdc" && !usdcQuote && step === "idle")}
-              className={`w-full py-3 rounded-xl font-heading font-bold text-sm uppercase tracking-wider transition-all ${
-                isProcessing
-                  ? "bg-accent/20 text-accent animate-pulse cursor-wait"
-                  : step === "done"
-                  ? "bg-surface-light hover:bg-white/10 text-white"
-                  : step === "error"
-                  ? "bg-surface-light hover:bg-white/10 text-white"
-                  : "bg-accent hover:bg-accent/80 text-white disabled:opacity-30"
-              }`}
-            >
-              {stepLabels[step]}
-            </button>
+            {/* Desktop: inline button */}
+            <div className="hidden md:block">
+              <button
+                onClick={step === "done" || step === "error" ? handleReset : handlePurchase}
+                disabled={isProcessing || (method === "usdc" && !usdcQuote && step === "idle")}
+                className={`w-full py-3 rounded-xl font-heading font-bold text-sm uppercase tracking-wider transition-all ${
+                  isProcessing
+                    ? "bg-accent/20 text-accent animate-pulse cursor-wait"
+                    : step === "done"
+                    ? "bg-surface-light hover:bg-white/10 text-white"
+                    : step === "error"
+                    ? "bg-surface-light hover:bg-white/10 text-white"
+                    : "bg-accent hover:bg-accent/80 text-white disabled:opacity-30"
+                }`}
+              >
+                {stepLabels[step]}
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Transaction history */}
-        <div className="bg-surface rounded-xl border border-white/5 p-6">
+        <div className="bg-surface rounded-xl border border-white/5 p-4 md:p-6">
           <h2 className="font-heading font-bold text-white text-lg mb-4">Recent Transactions</h2>
 
           {transactions.length === 0 ? (
@@ -689,6 +714,25 @@ function CreditsContent({ sessionToken, walletAddress }: { sessionToken: string 
           )}
         </div>
       </div>
+
+      {/* Mobile: sticky bottom purchase button */}
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-bg/95 backdrop-blur-sm border-t border-white/5 z-30 md:hidden">
+        <button
+          onClick={step === "done" || step === "error" ? handleReset : handlePurchase}
+          disabled={isProcessing || (method === "usdc" && !usdcQuote && step === "idle")}
+          className={`w-full py-3 rounded-xl font-heading font-bold text-sm uppercase tracking-wider transition-all ${
+            isProcessing
+              ? "bg-accent/20 text-accent animate-pulse cursor-wait"
+              : step === "done"
+              ? "bg-surface-light hover:bg-white/10 text-white"
+              : step === "error"
+              ? "bg-surface-light hover:bg-white/10 text-white"
+              : "bg-accent hover:bg-accent/80 text-white disabled:opacity-30"
+          }`}
+        >
+          {stepLabels[step]}
+        </button>
+      </div>
     </div>
   );
 }
@@ -697,13 +741,10 @@ export default function CreditsPage() {
   const { sessionToken, address } = useSessionToken();
 
   return (
-    <main className="h-screen flex flex-col bg-bg">
-      <AppHeader />
-      <TokenGate featureName="Credits">
-        <ErrorBoundary>
-          <CreditsContent sessionToken={sessionToken} walletAddress={address} />
-        </ErrorBoundary>
-      </TokenGate>
-    </main>
+    <DashboardLayout>
+      <ErrorBoundary>
+        <CreditsContent sessionToken={sessionToken} walletAddress={address} />
+      </ErrorBoundary>
+    </DashboardLayout>
   );
 }

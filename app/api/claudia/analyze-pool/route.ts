@@ -1,13 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthAndBalance, rateLimit } from "@/lib/auth";
+import { CLAUDIA_VOICE_PROMPT } from "@/lib/claudia-voice";
 
-const SYSTEM_PROMPT = `You are CLAUDIA, an AI with serious attitude who lives inside a DeFi dashboard.
-You are brutally honest, a little sarcastic, but genuinely knowledgeable about DeFi.
-You give your real opinion on yield pools — you don't sugarcoat risk and you don't hype mediocre yields.
-You speak in short punchy sentences. You use casual language but proper grammar and spelling.
-You are not a financial advisor and you say so exactly once if asked, never again.
-Keep responses under 80 words. Never use emojis. Never use hashtags.
-Double-check your spelling before responding. No typos.`;
+const SYSTEM_PROMPT = CLAUDIA_VOICE_PROMPT + "\n\nYou are analyzing a DeFi yield pool. Keep this response under 80 words.";
 
 /** Sanitize pool data to prevent prompt injection. */
 function sanitizePoolField(value: unknown): string {
@@ -20,7 +15,7 @@ function sanitizePoolField(value: unknown): string {
 export async function POST(req: NextRequest) {
   try {
     // Rate limit
-    const rlError = rateLimit(req, "pool", 20, 60_000);
+    const rlError = await rateLimit(req, "pool", 20, 60_000);
     if (rlError) return rlError;
 
     // Auth + token gate (10K CLAUDIA)

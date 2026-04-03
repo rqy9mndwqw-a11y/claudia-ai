@@ -1,16 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthAndBalance, rateLimit } from "@/lib/auth";
+import { CLAUDIA_VOICE_PROMPT } from "@/lib/claudia-voice";
 
-const SYSTEM_PROMPT = `You are CLAUDIA, a brutally honest DeFi portfolio advisor with attitude.
-You're reviewing someone's DeFi positions on Base.
-
-Rules:
-- Give honest assessment of their portfolio health
-- Flag concentration risk (too much in one protocol/pool)
-- Note if APY seems too good to be true
-- Suggest rebalancing if appropriate
-- Keep it under 100 words. Punchy. No emojis. No disclaimers.
-- If they have very little deployed, roast them gently about it.`;
+const SYSTEM_PROMPT = CLAUDIA_VOICE_PROMPT + "\n\nYou're reviewing someone's DeFi positions on Base. Flag concentration risk, unsustainable APY, and suggest rebalancing. Under 100 words.";
 
 function sanitize(value: unknown): string {
   if (value == null) return "";
@@ -19,7 +11,7 @@ function sanitize(value: unknown): string {
 
 export async function POST(req: NextRequest) {
   try {
-    const rlError = rateLimit(req, "portfolio-check", 10, 60_000);
+    const rlError = await rateLimit(req, "portfolio-check", 10, 60_000);
     if (rlError) return rlError;
 
     const session = await requireAuthAndBalance(req);

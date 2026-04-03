@@ -328,7 +328,7 @@ export default function TradeInterface() {
                 </div>
               )}
 
-              <div className="grid grid-cols-4 md:grid-cols-5 gap-2 mb-6">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 mb-6">
                 {SUPPORTED_PAIRS.map((symbol) => (
                   <button
                     key={symbol}
@@ -452,7 +452,7 @@ export default function TradeInterface() {
 
                 <div className="space-y-3">
                   {/* Row 1: Coin, Side, Amount */}
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
                       <label className="text-zinc-600 text-[11px] uppercase tracking-widest block mb-1">Coin</label>
                       <select

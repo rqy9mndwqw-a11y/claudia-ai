@@ -4,7 +4,7 @@ import { rateLimit } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
   // Rate limit — public endpoint but prevent scraping abuse
-  const rlError = rateLimit(req, "yields", 30, 60_000);
+  const rlError = await rateLimit(req, "yields", 30, 60_000);
   if (rlError) return rlError;
 
   try {

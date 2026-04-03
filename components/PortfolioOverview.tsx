@@ -157,12 +157,11 @@ export default function PortfolioOverview({
         {isLoading && positions.length === 0 ? (
           <PositionSkeleton />
         ) : positions.length === 0 ? (
-          <div className="text-center py-16">
-            <p className="text-zinc-500 text-sm mb-1">No DeFi positions found on Base.</p>
+          <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
+            <p className="text-zinc-400 text-sm">nothing here yet.</p>
             <p className="text-zinc-600 text-xs">
-              Deposit into Aave or Aerodrome on the{" "}
-              <a href="/defi" className="text-accent hover:underline">DeFi page</a>{" "}
-              to see your positions here.
+              deposit into Aave or Aerodrome then come back.{" "}
+              <a href="/defi" className="text-accent hover:underline">DeFi page &rarr;</a>
             </p>
           </div>
         ) : (

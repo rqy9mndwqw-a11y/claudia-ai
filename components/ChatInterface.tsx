@@ -284,7 +284,7 @@ export default function ChatInterface() {
                   &ldquo;{emptyGreeting}&rdquo;
                 </p>
                 <p className="text-zinc-600 text-xs mb-2 max-w-sm">
-                  General DeFi assistant — good for questions, explanations, and getting started.
+                  General market assistant — good for questions, explanations, and getting started.
                 </p>
                 <a href="/agents" className="text-[11px] text-accent/70 hover:text-accent mb-8 transition-colors">
                   Need a specialist? Try marketplace agents &rarr;
@@ -396,7 +396,7 @@ export default function ChatInterface() {
               </button>
             </div>
             <p className="text-zinc-700 text-[11px] mt-1.5 text-center">
-              Live DeFi data. Your keys, your trades. Claudia never holds funds.
+              Live market data. Your keys, your analysis. Claudia never holds funds.
             </p>
           </div>
         </div>

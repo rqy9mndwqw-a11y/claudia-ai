@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyExchangeKey, type ExchangeId } from "@/lib/exchange";
 import { requireAuthAndBalance, rateLimit } from "@/lib/auth";
+import { GATE_THRESHOLDS } from "@/lib/gate-thresholds";
 
 export async function POST(req: NextRequest) {
   try {
     // Rate limit
-    const rlError = rateLimit(req, "trade-verify", 5, 60_000);
+    const rlError = await rateLimit(req, "trade-verify", 5, 60_000);
     if (rlError) return rlError;
 
-    // Auth + token gate (100K CLAUDIA for trading features)
-    const session = await requireAuthAndBalance(req, 100_000);
+    // Auth + token gate
+    const session = await requireAuthAndBalance(req, GATE_THRESHOLDS.trading, "trading");
     if (session instanceof NextResponse) return session;
 
     const { apiKey, apiSecret, exchange } = await req.json() as any;

@@ -2,11 +2,20 @@
 
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import AppHeader from "@/components/ui/AppHeader";
+import { useAccount } from "wagmi";
+import DashboardLayout from "@/components/ui/DashboardLayout";
 import TokenGate from "@/components/TokenGate";
 import AgentCard from "@/components/AgentCard";
+import ClaudiaCharacter from "@/components/ClaudiaCharacter";
 import { useSessionToken } from "@/hooks/useSessionToken";
+import { GATE_THRESHOLDS } from "@/lib/gate-thresholds";
 import type { AgentPublic } from "@/lib/marketplace/types";
+
+// ── Approved creator allowlist (env var, comma-separated) ──
+const APPROVED_CREATORS = (process.env.NEXT_PUBLIC_APPROVED_CREATORS || "")
+  .split(",")
+  .map((a) => a.trim().toLowerCase())
+  .filter(Boolean);
 
 const CATEGORIES = [
   { value: "defi", label: "DeFi" },
@@ -15,6 +24,102 @@ const CATEGORIES = [
   { value: "degen", label: "Degen" },
   { value: "general", label: "General" },
 ];
+
+// ── Coming Soon screen for non-approved wallets ──
+
+function ComingSoon({ sessionToken }: { sessionToken: string | null }) {
+  const [contact, setContact] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleApply = async () => {
+    if (!sessionToken || !contact.trim()) return;
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/agents/apply", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionToken}`,
+        },
+        body: JSON.stringify({ contact: contact.trim() }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null) as any;
+        throw new Error(data?.error || "Failed to submit");
+      }
+
+      setSubmitted(true);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="flex-1 flex items-center justify-center px-4">
+      <div className="max-w-lg w-full text-center space-y-6">
+        <ClaudiaCharacter
+          imageSrc="/claudia-avatar.png"
+          mood="skeptical"
+          message="I'm reviewing applications personally. Standards are high."
+          className="mx-auto"
+        />
+
+        <div className="bg-surface rounded-2xl border border-white/5 p-8 space-y-4">
+          <div className="text-3xl">🔒</div>
+          <h2 className="font-heading font-bold text-white text-xl">
+            Agent Creator Access — Coming Soon
+          </h2>
+          <p className="text-zinc-400 text-sm leading-relaxed">
+            Creator applications will open soon.
+            Hold <span className="text-accent font-bold">{GATE_THRESHOLDS.marketplace_create.toLocaleString()} $CLAUDIA</span> to qualify.
+          </p>
+
+          {submitted ? (
+            <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4">
+              <p className="text-green-400 font-bold text-sm">Application submitted</p>
+              <p className="text-zinc-500 text-xs mt-1">We&apos;ll reach out when creator access opens.</p>
+            </div>
+          ) : (
+            <div className="space-y-3 pt-2">
+              <p className="text-zinc-500 text-xs">Get notified when creator access opens:</p>
+              <input
+                value={contact}
+                onChange={(e) => setContact(e.target.value)}
+                placeholder="Email or Telegram handle"
+                maxLength={200}
+                className="w-full bg-bg border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white
+                           placeholder-zinc-600 outline-none focus:border-accent/30 transition-colors"
+              />
+              {error && <p className="text-red-400 text-xs">{error}</p>}
+              <button
+                onClick={handleApply}
+                disabled={submitting || !contact.trim()}
+                className="w-full py-2.5 rounded-xl font-heading font-bold text-xs uppercase tracking-wider
+                           bg-accent hover:bg-accent/80 text-white transition-all
+                           disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                {submitting ? "Submitting..." : "Notify Me"}
+              </button>
+            </div>
+          )}
+        </div>
+
+        <a href="/agents" className="text-zinc-500 hover:text-white text-xs transition-colors inline-block">
+          &larr; Back to Marketplace
+        </a>
+      </div>
+    </div>
+  );
+}
+
+// ── Create form (only shown to approved creators) ──
 
 function CreateForm({ sessionToken }: { sessionToken: string | null }) {
   const router = useRouter();
@@ -76,6 +181,7 @@ function CreateForm({ sessionToken }: { sessionToken: string | null }) {
     usage_count: 0,
     upvotes: 0,
     downvotes: 0,
+    status: "active",
     created_at: new Date().toISOString(),
   };
 
@@ -254,15 +360,27 @@ function CreateForm({ sessionToken }: { sessionToken: string | null }) {
   );
 }
 
+// ── Page wrapper: TokenGate → allowlist check → form or coming soon ──
+
+function CreateGated({ sessionToken }: { sessionToken: string | null }) {
+  const { address } = useAccount();
+  const isApproved = address && APPROVED_CREATORS.includes(address.toLowerCase());
+
+  if (!isApproved) {
+    return <ComingSoon sessionToken={sessionToken} />;
+  }
+
+  return <CreateForm sessionToken={sessionToken} />;
+}
+
 export default function CreateAgentPage() {
   const { sessionToken } = useSessionToken();
 
   return (
-    <main className="h-screen flex flex-col bg-bg">
-      <AppHeader />
-      <TokenGate minBalance={500_000} featureName="Agent Creation">
-        <CreateForm sessionToken={sessionToken} />
+    <DashboardLayout>
+      <TokenGate minBalance={GATE_THRESHOLDS.marketplace_create} featureName="Agent Creation">
+        <CreateGated sessionToken={sessionToken} />
       </TokenGate>
-    </main>
+    </DashboardLayout>
   );
 }

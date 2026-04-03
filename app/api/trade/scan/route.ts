@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchOHLCV, fetchTicker, type ExchangeId } from "@/lib/exchange";
+import { fetchTicker, type ExchangeId } from "@/lib/exchange";
 import { SUPPORTED_PAIRS } from "@/lib/kraken-pairs";
 import { requireAuthAndBalance, rateLimit } from "@/lib/auth";
+import { GATE_THRESHOLDS } from "@/lib/gate-thresholds";
+import { getTaapiIndicators } from "@/lib/data/taapi";
 
 const SCAN_PROMPT = `You are NOT an analyst. You are Claudia — the trading advisor who's slightly annoyed she has to explain this but is going to nail it anyway.
 
@@ -21,53 +23,14 @@ PERSONALITY RULES:
 - Short and brutal. No filler. No fluff.
 - End with one overall market vibe sentence — make it memorable.`;
 
-function computeIndicators(close: number[]) {
-  const len = close.length;
-  if (len < 26) return null;
-
-  const rsiPeriod = 14;
-  let gains = 0, losses = 0;
-  for (let i = len - rsiPeriod; i < len; i++) {
-    const diff = close[i] - close[i - 1];
-    if (diff > 0) gains += diff;
-    else losses -= diff;
-  }
-  const avgGain = gains / rsiPeriod;
-  const avgLoss = losses / rsiPeriod;
-  const rsi = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss);
-
-  const sma20 = close.slice(-20).reduce((a, b) => a + b, 0) / 20;
-  const sma50 = close.slice(-50).reduce((a, b) => a + b, 0) / Math.min(50, close.length);
-
-  const change24h = ((close[len - 1] - close[len - 25]) / close[len - 25]) * 100;
-  const change1h = ((close[len - 1] - close[len - 2]) / close[len - 2]) * 100;
-
-  const returns = close.slice(-21).map((c, i, arr) => i > 0 ? (c - arr[i-1]) / arr[i-1] : 0).slice(1);
-  const mean = returns.reduce((a, b) => a + b, 0) / returns.length;
-  const variance = returns.reduce((a, r) => a + (r - mean) ** 2, 0) / returns.length;
-  const volatility = Math.sqrt(variance) * 100;
-
-  return {
-    rsi: Math.round(rsi * 10) / 10,
-    sma20: Math.round(sma20 * 100) / 100,
-    sma50: Math.round(sma50 * 100) / 100,
-    change24h: Math.round(change24h * 100) / 100,
-    change1h: Math.round(change1h * 100) / 100,
-    volatility: Math.round(volatility * 100) / 100,
-    price: close[len - 1],
-    aboveSma20: close[len - 1] > sma20,
-    aboveSma50: close[len - 1] > sma50,
-  };
-}
-
 export async function POST(req: NextRequest) {
   try {
     // Rate limit
-    const rlError = rateLimit(req, "scan", 5, 60_000);
+    const rlError = await rateLimit(req, "scan", 5, 60_000);
     if (rlError) return rlError;
 
-    // Auth + token gate (100K CLAUDIA for trading features)
-    const session = await requireAuthAndBalance(req, 100_000);
+    // Auth + token gate
+    const session = await requireAuthAndBalance(req, GATE_THRESHOLDS.trading, "trading");
     if (session instanceof NextResponse) return session;
 
     const { watchlist, exchange } = await req.json() as any;
@@ -87,12 +50,14 @@ export async function POST(req: NextRequest) {
 
     const results = await Promise.allSettled(
       symbols.map(async (symbol: string) => {
-        const [ohlcv, ticker] = await Promise.all([
-          fetchOHLCV(exchangeId, symbol, "1h"),
+        const [indicators, ticker] = await Promise.all([
+          getTaapiIndicators(`${symbol}/USD`, "1h").catch(() => null),
           fetchTicker(exchangeId, symbol),
         ]);
-        const indicators = computeIndicators(ohlcv.close);
-        return { symbol, ticker, indicators };
+        const rsi = indicators?.rsi ?? 50;
+        const price = indicators?.candle?.close ?? ticker.price;
+        const change24h = indicators?.candle ? ((indicators.candle.close - indicators.candle.open) / indicators.candle.open * 100) : 0;
+        return { symbol, ticker, indicators: { rsi, price, change24h }, taapiIndicators: indicators };
       })
     );
 
@@ -101,14 +66,17 @@ export async function POST(req: NextRequest) {
 
     for (const r of results) {
       if (r.status === "fulfilled") {
-        const { symbol, ticker, indicators } = r.value;
+        const { symbol, ticker, indicators, taapiIndicators } = r.value;
         validResults.push(r.value);
         dataContext += `**${symbol}/USD** — $${ticker.price.toLocaleString()}\n`;
-        if (indicators) {
-          dataContext += `  RSI: ${indicators.rsi} | 24h: ${indicators.change24h > 0 ? "+" : ""}${indicators.change24h}% | 1h: ${indicators.change1h > 0 ? "+" : ""}${indicators.change1h}%\n`;
-          dataContext += `  SMA20: $${indicators.sma20.toLocaleString()} (${indicators.aboveSma20 ? "above" : "below"}) | SMA50: $${indicators.sma50.toLocaleString()} (${indicators.aboveSma50 ? "above" : "below"})\n`;
-          dataContext += `  Volatility: ${indicators.volatility}% | 24h Volume: $${(ticker.volume24h * ticker.price).toLocaleString()}\n`;
+        dataContext += `  RSI: ${indicators.rsi} | 24h: ${indicators.change24h > 0 ? "+" : ""}${indicators.change24h.toFixed(2)}%\n`;
+        if (taapiIndicators?.ema50 != null && taapiIndicators?.ema200 != null) {
+          dataContext += `  EMA50: $${taapiIndicators.ema50.toFixed(2)} | EMA200: $${taapiIndicators.ema200.toFixed(2)}\n`;
         }
+        if (taapiIndicators?.bbands) {
+          dataContext += `  BB: Upper $${taapiIndicators.bbands.upper.toFixed(2)} | Lower $${taapiIndicators.bbands.lower.toFixed(2)}\n`;
+        }
+        dataContext += `  24h Volume: $${(ticker.volume24h * ticker.price).toLocaleString()}\n`;
         dataContext += "\n";
       }
     }
@@ -146,8 +114,8 @@ export async function POST(req: NextRequest) {
         price: r.ticker.price,
         bid: r.ticker.bid,
         ask: r.ticker.ask,
-        rsi: r.indicators?.rsi,
-        change24h: r.indicators?.change24h,
+        rsi: r.indicators?.rsi ?? null,
+        change24h: r.indicators?.change24h ?? null,
         volume24h: r.ticker.volume24h * r.ticker.price,
       })),
     });

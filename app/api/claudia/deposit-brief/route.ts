@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthAndBalance, rateLimit } from "@/lib/auth";
+import { CLAUDIA_VOICE_PROMPT } from "@/lib/claudia-voice";
 
-const SYSTEM_PROMPT = `You are CLAUDIA. Someone is about to deposit into a DeFi pool.
-Give them a quick pre-deposit brief in 2-3 sentences.
-Mention the key risk if any (IL, smart contract, concentration).
-Be honest but don't scare them away from good pools.
-No emojis. No disclaimers. Punchy.`;
+const SYSTEM_PROMPT = CLAUDIA_VOICE_PROMPT + "\n\nSomeone is about to deposit into a DeFi pool. Quick pre-deposit brief in 2-3 sentences. Mention key risks.";
 
 function sanitize(value: unknown): string {
   if (value == null) return "";
@@ -14,7 +11,7 @@ function sanitize(value: unknown): string {
 
 export async function POST(req: NextRequest) {
   try {
-    const rlError = rateLimit(req, "deposit-brief", 20, 60_000);
+    const rlError = await rateLimit(req, "deposit-brief", 20, 60_000);
     if (rlError) return rlError;
 
     const session = await requireAuthAndBalance(req);

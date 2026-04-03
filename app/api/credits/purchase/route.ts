@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createPublicClient, http, decodeEventLog, type Log } from "viem";
 import { base } from "viem/chains";
-import { requireMarketplaceAuth } from "@/lib/marketplace/middleware";
-import { addCreditsAtomic } from "@/lib/marketplace/db";
+import { requireAuth, rateLimit } from "@/lib/auth";
+import { getDB, getOrCreateUser, addCreditsAtomic } from "@/lib/marketplace/db";
 
 /**
  * POST /api/credits/purchase — Verify on-chain CreditPurchase event and issue credits
@@ -67,14 +67,14 @@ function getFreshClient() {
 export async function POST(req: NextRequest) {
   try {
     // Auth + rate limit (10 per minute per wallet)
-    const auth = await requireMarketplaceAuth(req, {
-      ratePrefix: "credits-purchase",
-      rateMax: 10,
-      rateWindowMs: 60_000,
-    });
-    if (auth instanceof NextResponse) return auth;
+    const rlError = await rateLimit(req, "credits-purchase", 10, 60_000);
+    if (rlError) return rlError;
 
-    const { session, user, db } = auth;
+    const session = await requireAuth(req);
+    if (session instanceof NextResponse) return session;
+
+    const db = getDB();
+    const user = await getOrCreateUser(db, session.address);
 
     // Parse body
     const body = await req.json().catch(() => null);
@@ -185,13 +185,15 @@ export async function POST(req: NextRequest) {
           topics: log.topics,
         });
 
-        if (decoded.eventName === "CreditPurchase") {
+        if (decoded.eventName === "CreditPurchase" && decoded.args) {
+          const args = decoded.args as Record<string, unknown>;
+          if (!args.wallet || !args.creditsIssued) continue;
           creditEvent = {
-            wallet: (decoded.args as any).wallet as string,
-            claudiaAmount: (decoded.args as any).claudiaAmount as bigint,
-            creditsIssued: (decoded.args as any).creditsIssued as bigint,
-            paymentToken: (decoded.args as any).paymentToken as string,
-            paymentAmount: (decoded.args as any).paymentAmount as bigint,
+            wallet: String(args.wallet),
+            claudiaAmount: BigInt(String(args.claudiaAmount ?? 0)),
+            creditsIssued: BigInt(String(args.creditsIssued ?? 0)),
+            paymentToken: String(args.paymentToken ?? ""),
+            paymentAmount: BigInt(String(args.paymentAmount ?? 0)),
           };
           break;
         }

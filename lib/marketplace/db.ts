@@ -1,5 +1,6 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import type { UserRow, AgentRow, ChatMessageRow, CreditTransactionRow } from "./types";
+import { trackActivity } from "@/lib/leaderboard/track-activity";
 
 /**
  * Get the D1 database binding from the Cloudflare request context.
@@ -58,7 +59,7 @@ export async function listPublicAgents(
   options: { category?: string; search?: string; limit?: number; offset?: number }
 ): Promise<AgentRow[]> {
   const { category, search, limit = 50, offset = 0 } = options;
-  let sql = "SELECT * FROM agents WHERE status = 'active' AND is_public = 1";
+  let sql = "SELECT * FROM agents WHERE status IN ('active', 'coming_soon') AND is_public = 1";
   const params: any[] = [];
 
   if (category && category !== "all") {
@@ -165,7 +166,8 @@ export async function deductCreditsAtomic(
   const creatorLower = creatorAddress.toLowerCase();
 
   // Platform takes 20%, creator gets 80%
-  const creatorShare = Math.floor(amount * 0.8);
+  const platformShare = Math.floor(amount * 0.2);
+  const creatorShare = amount - platformShare;
 
   // Check current balance first
   const user = await db.prepare("SELECT credits FROM users WHERE address = ?").bind(lower).first<{ credits: number }>();
@@ -207,6 +209,9 @@ export async function deductCreditsAtomic(
     ).bind(agentId),
   ]);
 
+  // Track activity for leaderboard (fire-and-forget — never blocks)
+  trackActivity(lower, amount).catch(() => {});
+
   return { userBalance: newUserBalance, creatorBalance: newCreatorBalance };
 }
 
@@ -238,6 +243,42 @@ export async function addCreditsAtomic(
       "INSERT INTO credit_transactions (address, amount, type, reference_id, balance_after) VALUES (?, ?, ?, ?, ?)"
     ).bind(lower, amount, type, referenceId, newBalance),
   ]);
+
+  return newBalance;
+}
+
+/**
+ * Deduct credits for a platform feature (no creator split).
+ * Used for full analysis and other premium features.
+ * Throws if insufficient credits.
+ */
+export async function deductPlatformCredits(
+  db: D1Database,
+  userAddress: string,
+  amount: number,
+  referenceId: string
+): Promise<number> {
+  const lower = userAddress.toLowerCase();
+
+  const user = await db.prepare("SELECT credits FROM users WHERE address = ?").bind(lower).first<{ credits: number }>();
+  if (!user || user.credits < amount) {
+    throw new Error(`Insufficient credits: have ${user?.credits ?? 0}, need ${amount}`);
+  }
+
+  const newBalance = user.credits - amount;
+
+  await db.batch([
+    db.prepare(
+      "UPDATE users SET credits = credits - ?, total_spent = total_spent + ?, updated_at = datetime('now') WHERE address = ? AND credits >= ?"
+    ).bind(amount, amount, lower, amount),
+
+    db.prepare(
+      "INSERT INTO credit_transactions (address, amount, type, reference_id, balance_after) VALUES (?, ?, 'chat_spend', ?, ?)"
+    ).bind(lower, -amount, referenceId, newBalance),
+  ]);
+
+  // Track activity for leaderboard (fire-and-forget — never blocks)
+  trackActivity(lower, amount).catch(() => {});
 
   return newBalance;
 }

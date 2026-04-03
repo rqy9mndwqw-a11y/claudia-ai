@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { placeOrder, type ExchangeId } from "@/lib/exchange";
 import { requireAuthAndBalance, rateLimit } from "@/lib/auth";
+import { GATE_THRESHOLDS } from "@/lib/gate-thresholds";
 
 export async function POST(req: NextRequest) {
   try {
     // Rate limit
-    const rlError = rateLimit(req, "trade-exec", 10, 60_000);
+    const rlError = await rateLimit(req, "trade-exec", 10, 60_000);
     if (rlError) return rlError;
 
-    // Auth + token gate (100K CLAUDIA for trading features)
-    const session = await requireAuthAndBalance(req, 100_000);
+    // Auth + token gate
+    const session = await requireAuthAndBalance(req, GATE_THRESHOLDS.trading, "trading");
     if (session instanceof NextResponse) return session;
 
     const { apiKey, apiSecret, exchange, symbol, side, amount, price, orderType, stopLoss, takeProfit } = await req.json() as any;
@@ -56,10 +57,17 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     const msg = (err as Error).message;
-    if (msg.includes("EOrder") || msg.includes("EGeneral") || msg.includes("EAPI") || msg.includes("Invalid")) {
-      return NextResponse.json({ error: msg }, { status: 400 });
-    }
     console.error("Execute error:", msg);
-    return NextResponse.json({ error: "Trade execution failed. Check your API key permissions." }, { status: 500 });
+
+    // Sanitize exchange errors — never expose raw exchange error codes to client
+    let userError = "Trade failed. Please try again.";
+    if (msg.includes("EOrder")) userError = "Order rejected. Check size and available balance.";
+    else if (msg.includes("EAPI")) userError = "Exchange connection error. Try again.";
+    else if (msg.includes("EGeneral")) userError = "Trade failed. Please try again.";
+    else if (msg.includes("EFunding")) userError = "Insufficient funds for this trade.";
+    else if (msg.includes("EService")) userError = "Exchange temporarily unavailable.";
+    else if (msg.includes("Invalid")) userError = "Invalid trade parameters.";
+
+    return NextResponse.json({ error: userError }, { status: 400 });
   }
 }

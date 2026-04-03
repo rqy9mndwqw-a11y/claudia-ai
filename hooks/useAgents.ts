@@ -26,60 +26,74 @@ export function useAgents(sessionToken: string | null): UseAgentsResult {
   const [category, setCategory] = useState<Category>("all");
   const [sortBy, setSortBy] = useState<SortBy>("popular");
   const [search, setSearch] = useState("");
+  const [fetchKey, setFetchKey] = useState(0); // increment to force re-fetch
 
-  const fetchAgents = useCallback(async () => {
-    if (!sessionToken) return;
+  // Core fetch — runs on mount, token change, filter change, or manual refresh
+  useEffect(() => {
+    if (!sessionToken) {
+      return;
+    }
+
+    let active = true;
+
     setIsLoading(true);
     setError(null);
 
-    try {
-      const params = new URLSearchParams();
-      if (category !== "all") params.set("category", category);
-      if (search) params.set("search", search);
-      params.set("limit", "100");
+    const doFetch = async () => {
+      try {
+        const params = new URLSearchParams();
+        if (category !== "all") params.set("category", category);
+        if (search) params.set("search", search);
+        params.set("limit", "100");
 
-      const res = await fetch(`/api/agents?${params}`, {
-        headers: { Authorization: `Bearer ${sessionToken}` },
-      });
+        const res = await fetch(`/api/agents?${params}`, {
+          headers: { Authorization: `Bearer ${sessionToken}` },
+        });
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => null) as any;
-        throw new Error(data?.error || `Failed to fetch agents (${res.status})`);
+        if (!res.ok) {
+          const data = await res.json().catch(() => null) as any;
+          throw new Error(data?.error || `Failed to load agents (${res.status})`);
+        }
+
+        const data = await res.json() as any;
+        const sorted = (data.agents || []) as AgentPublic[];
+
+        switch (sortBy) {
+          case "popular":
+            sorted.sort((a, b) => b.usage_count - a.usage_count);
+            break;
+          case "newest":
+            sorted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+            break;
+          case "cheapest":
+            sorted.sort((a, b) => a.cost_per_chat - b.cost_per_chat);
+            break;
+        }
+
+        if (active) setAgents(sorted);
+      } catch (err) {
+        if (active) {
+          setError((err as Error).message);
+        }
+      } finally {
+        if (active) setIsLoading(false);
       }
+    };
 
-      const data = await res.json() as any;
-      let sorted = data.agents as AgentPublic[];
+    doFetch();
 
-      // Client-side sort
-      switch (sortBy) {
-        case "popular":
-          sorted.sort((a, b) => b.usage_count - a.usage_count);
-          break;
-        case "newest":
-          sorted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-          break;
-        case "cheapest":
-          sorted.sort((a, b) => a.cost_per_chat - b.cost_per_chat);
-          break;
-      }
+    return () => { active = false; };
+  }, [sessionToken, category, search, sortBy, fetchKey]);
 
-      setAgents(sorted);
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [sessionToken, category, search, sortBy]);
-
-  useEffect(() => {
-    fetchAgents();
-  }, [fetchAgents]);
+  const refresh = useCallback(() => {
+    setFetchKey((k) => k + 1);
+  }, []);
 
   return {
     agents, isLoading, error,
     category, setCategory,
     sortBy, setSortBy,
     search, setSearch,
-    refresh: fetchAgents,
+    refresh,
   };
 }

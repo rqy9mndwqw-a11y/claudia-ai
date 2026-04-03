@@ -1,31 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireMarketplaceAuth, requireTier } from "@/lib/marketplace/middleware";
+import { requireAuth, rateLimit } from "@/lib/auth";
+import { getDB, getOrCreateUser } from "@/lib/marketplace/db";
+import { requireTier } from "@/lib/marketplace/middleware";
 
 /**
  * GET /api/credits — Get current credit balance, tier, and recent transactions
  *
- * Returns:
- * - credits: current balance
- * - tier: refreshed from on-chain $CLAUDIA balance
- * - total_spent / total_earned: lifetime stats
- * - transactions: last 20 credit movements
- *
- * Auth: required (SIWE session)
- * Rate limit: 30/min per wallet
+ * Auth: SIWE session only (no CLAUDIA balance required)
+ * Rate limit: 30/min per IP
  */
 export async function GET(req: NextRequest) {
   try {
-    const auth = await requireMarketplaceAuth(req, {
-      ratePrefix: "credits-balance",
-      rateMax: 30,
-      rateWindowMs: 60_000,
-    });
-    if (auth instanceof NextResponse) return auth;
+    const rlError = await rateLimit(req, "credits-balance", 30, 60_000);
+    if (rlError) return rlError;
 
-    const { user, db } = auth;
+    const session = await requireAuth(req);
+    if (session instanceof NextResponse) return session;
+
+    const db = getDB();
+    const user = await getOrCreateUser(db, session.address);
 
     // Refresh tier from on-chain balance (updates D1 if changed)
-    // We call requireTier with "browse" (lowest) — it refreshes regardless of result
     await requireTier(db, user, "browse").catch(() => {});
 
     // Re-fetch user after tier update

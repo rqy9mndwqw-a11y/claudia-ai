@@ -5,7 +5,7 @@ import { scorePoolsWithGroq } from "@/lib/risk-scorer";
 export async function POST(req: NextRequest) {
   try {
     // Rate limit: 10 requests per minute per IP
-    const rlError = rateLimit(req, "risk-scores", 10, 60_000);
+    const rlError = await rateLimit(req, "risk-scores", 10, 60_000);
     if (rlError) return rlError;
 
     // Auth + token gate (10K CLAUDIA)

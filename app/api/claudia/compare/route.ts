@@ -1,16 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthAndBalance, rateLimit } from "@/lib/auth";
 
-const COMPARE_PROMPT = `You are CLAUDIA, a brutally honest DeFi expert with attitude.
-You're comparing yield opportunities for someone with a specific amount to deploy.
+const COMPARE_PROMPT = `You're comparing yield opportunities for someone with a specific amount to deploy.
 
-Rules:
-- Pick the top 3-5 best options from the pools provided
-- For each pick, explain WHY in 1-2 punchy sentences
-- Include projected monthly and annual earnings (simple math: amount * APY / 12 for monthly)
-- Give an overall recommendation at the end (1-2 sentences)
-- Be opinionated. If something is trash, say so.
-- No emojis. No disclaimers. Short and sharp.
+Pick the top 3-5 best options. For each, explain WHY in 1-2 punchy sentences.
+Include projected monthly and annual earnings (amount * APY / 12 for monthly).
+Be opinionated. If something is trash, say so. No emojis.
 
 Respond ONLY with valid JSON (no markdown, no backticks):
 {
@@ -22,7 +17,7 @@ Respond ONLY with valid JSON (no markdown, no backticks):
       "apy": 12.5,
       "monthlyEarnings": 10.42,
       "annualEarnings": 125.0,
-      "take": "Claudia's 1-2 sentence opinion"
+      "take": "1-2 sentence opinion"
     }
   ],
   "summary": "Overall recommendation in 1-2 sentences"
@@ -35,7 +30,7 @@ function sanitize(value: unknown): string {
 
 export async function POST(req: NextRequest) {
   try {
-    const rlError = rateLimit(req, "compare", 10, 60_000);
+    const rlError = await rateLimit(req, "compare", 10, 60_000);
     if (rlError) return rlError;
 
     const session = await requireAuthAndBalance(req);

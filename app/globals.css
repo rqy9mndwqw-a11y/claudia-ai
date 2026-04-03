@@ -246,3 +246,12 @@ button, a, input, select {
 .claudia-text-fading {
   animation: claudia-text-fade 0.5s ease-out forwards;
 }
+
+/* Bottom sheet slide-up for FloatingClaudia */
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}

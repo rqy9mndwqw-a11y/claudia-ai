@@ -1,6 +1,6 @@
 "use client";
 
-import AppHeader from "@/components/ui/AppHeader";
+import DashboardLayout from "@/components/ui/DashboardLayout";
 import TokenGate from "@/components/TokenGate";
 import PoolDashboard from "@/components/PoolDashboard";
 import { usePools } from "@/hooks/usePools";
@@ -11,11 +11,10 @@ export default function DefiPage() {
   const poolsState = usePools();
 
   return (
-    <main className="h-screen flex flex-col bg-bg">
-      <AppHeader />
-      <TokenGate featureName="DeFi Dashboard">
+    <DashboardLayout>
+      <TokenGate featureName="Yield Dashboard">
         <PoolDashboard poolsState={poolsState} sessionToken={sessionToken} />
       </TokenGate>
-    </main>
+    </DashboardLayout>
   );
 }

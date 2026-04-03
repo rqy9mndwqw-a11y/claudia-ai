@@ -1,6 +1,6 @@
 "use client";
 
-import AppHeader from "@/components/ui/AppHeader";
+import DashboardLayout from "@/components/ui/DashboardLayout";
 
 const STEPS = [
   { num: "1", title: "Connect Wallet", desc: "Connect any EVM wallet via RainbowKit. Works with MetaMask, Coinbase Wallet, and more." },
@@ -10,7 +10,7 @@ const STEPS = [
 ];
 
 const TIPS = [
-  { title: "Be specific", desc: "Agents with a clear niche outperform generic ones. 'Base yield farming specialist' beats 'DeFi helper.'" },
+  { title: "Be specific", desc: "Agents with a clear niche outperform generic ones. 'Base yield farming specialist' beats 'generic helper.'" },
   { title: "Write a strong system prompt", desc: "This is your agent's brain. Be detailed about tone, expertise areas, and what NOT to do. 200+ words works best." },
   { title: "Set fair pricing", desc: "1-3 credits for simple agents, 5-10 for premium research. Underpricing kills perceived value." },
   { title: "Pick the right model", desc: "Standard (8B) is fast and cheap. Premium (70B) gives deeper answers but costs 5x. Match model to complexity." },
@@ -22,14 +22,13 @@ const AGENT_IDEAS = [
   { icon: "📊", name: "Portfolio Rebalancer", desc: "Suggests optimal allocation based on risk tolerance" },
   { icon: "🐋", name: "Whale Tracker", desc: "Analyzes wallet behavior and identifies smart money moves" },
   { icon: "📰", name: "Alpha Aggregator", desc: "Summarizes CT, governance forums, and on-chain signals" },
-  { icon: "🎓", name: "DeFi Tutor", desc: "Explains complex concepts for beginners with examples" },
+  { icon: "🎓", name: "Market Tutor", desc: "Explains complex concepts for beginners with examples" },
   { icon: "⚡", name: "Gas Optimizer", desc: "Suggests best times and strategies to minimize gas costs" },
 ];
 
 export default function CreatorGuidePage() {
   return (
-    <main className="h-screen flex flex-col bg-bg">
-      <AppHeader />
+    <DashboardLayout>
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-3xl mx-auto px-5 py-10 space-y-12">
 
@@ -130,6 +129,6 @@ export default function CreatorGuidePage() {
           </div>
         </div>
       </div>
-    </main>
+    </DashboardLayout>
   );
 }

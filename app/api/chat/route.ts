@@ -47,7 +47,7 @@ const MAX_MESSAGES = 20;
 export async function POST(req: NextRequest) {
   try {
     // Rate limit
-    const rlError = rateLimit(req, "chat", 20, 60_000);
+    const rlError = await rateLimit(req, "chat", 20, 60_000);
     if (rlError) return rlError;
 
     // Auth — address comes from verified session token, not request body

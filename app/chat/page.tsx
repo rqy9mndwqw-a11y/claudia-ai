@@ -3,7 +3,7 @@
 import { useAccount } from "wagmi";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import AppHeader from "@/components/ui/AppHeader";
+import DashboardLayout from "@/components/ui/DashboardLayout";
 import TokenGate from "@/components/TokenGate";
 import ChatInterface from "@/components/ChatInterface";
 
@@ -21,11 +21,10 @@ export default function ChatPage() {
   }, [isConnected, router]);
 
   return (
-    <main className="h-screen flex flex-col bg-bg">
-      <AppHeader />
+    <DashboardLayout>
       <TokenGate>
         <ChatInterface />
       </TokenGate>
-    </main>
+    </DashboardLayout>
   );
 }

@@ -1,40 +1,42 @@
 /**
- * Simple in-memory rate limiter (edge-compatible).
- * Uses a plain object instead of Map, no setInterval.
- * For production at scale, swap for @upstash/ratelimit with Redis.
+ * D1-backed rate limiter (works across CF Worker isolates).
+ * Uses fixed-window counters stored in the rate_limits table.
  */
 
-interface RateLimitEntry {
-  count: number;
-  resetAt: number;
-}
+import { getDB } from "./marketplace/db";
 
-const store: Record<string, RateLimitEntry> = {};
+const CLEANUP_AGE_MS = 5 * 60 * 1000; // Clean up windows older than 5 minutes
 
 /**
- * Check rate limit for a given key (typically IP address).
+ * Check rate limit for a given key (typically "prefix:ip" or "prefix:address").
  */
-export function checkRateLimit(
+export async function checkRateLimit(
   key: string,
   maxRequests = 20,
   windowMs = 60_000
-): { allowed: boolean; remaining: number; resetAt: number } {
+): Promise<{ allowed: boolean; remaining: number; resetAt: number }> {
+  const db = getDB();
   const now = Date.now();
-  const entry = store[key];
+  const windowStart = now - (now % windowMs); // Align to fixed window boundary
+  const resetAt = windowStart + windowMs;
 
-  // Lazy cleanup: remove stale entry on access
-  if (entry && now > entry.resetAt) {
-    delete store[key];
-  }
+  // Upsert: increment count for this window, or insert with count=1
+  // Then read the count back (avoids RETURNING which is unreliable in some D1 versions)
+  await db.batch([
+    db.prepare("DELETE FROM rate_limits WHERE window_start < ?").bind(now - CLEANUP_AGE_MS),
+    db.prepare(
+      `INSERT INTO rate_limits (key, window_start, count) VALUES (?, ?, 1)
+       ON CONFLICT (key, window_start) DO UPDATE SET count = count + 1`
+    ).bind(key, windowStart),
+  ]);
 
-  if (!store[key]) {
-    store[key] = { count: 1, resetAt: now + windowMs };
-    return { allowed: true, remaining: maxRequests - 1, resetAt: now + windowMs };
-  }
+  const row = await db.prepare(
+    "SELECT count FROM rate_limits WHERE key = ? AND window_start = ?"
+  ).bind(key, windowStart).first<{ count: number }>();
 
-  store[key].count++;
-  const remaining = Math.max(0, maxRequests - store[key].count);
-  const allowed = store[key].count <= maxRequests;
+  const count = row?.count ?? 1;
+  const remaining = Math.max(0, maxRequests - count);
+  const allowed = count <= maxRequests;
 
-  return { allowed, remaining, resetAt: store[key].resetAt };
+  return { allowed, remaining, resetAt };
 }

@@ -34,7 +34,7 @@ export interface AgentRow {
   usage_count: number;
   upvotes: number;
   downvotes: number;
-  status: "active" | "suspended" | "deleted";
+  status: "active" | "suspended" | "deleted" | "coming_soon";
   created_at: string;
   updated_at: string;
 }
@@ -72,7 +72,17 @@ export interface AgentPublic {
   usage_count: number;
   upvotes: number;
   downvotes: number;
+  status: string;
   created_at: string;
+  example_prompts?: string[];
+  related_agents?: Array<{ id: string; name: string; icon: string }>;
+}
+
+export interface SuggestedAgent {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
 }
 
 export interface CreateAgentInput {
@@ -135,6 +145,8 @@ export interface ChatResponse {
   model: string;
   credits_used: number;
   credits_remaining: number;
+  suggested_agent?: SuggestedAgent;
+  related_agents?: Array<{ id: string; name: string; icon: string }>;
 }
 
 export interface PurchaseResponse {
@@ -160,14 +172,8 @@ export interface ApiError {
   [key: string]: unknown;
 }
 
-// ── Tier thresholds (in $CLAUDIA tokens) ──
-
-export const TIER_THRESHOLDS = {
-  browse: 100_000,
-  use: 100_000,
-  create: 500_000,
-  whale: 1_000_000,
-} as const;
+// ── Tier thresholds — re-exported from single source of truth ──
+export { TIER_THRESHOLDS } from "../gate-thresholds";
 
 // ── Model mapping ──
 

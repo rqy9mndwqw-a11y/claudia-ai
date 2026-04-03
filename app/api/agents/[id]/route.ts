@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireMarketplaceAuth, requireTier } from "@/lib/marketplace/middleware";
 import { getAgentById } from "@/lib/marketplace/db";
 import type { AgentPublic } from "@/lib/marketplace/types";
+import { getRelatedAgentInfo } from "@/lib/marketplace/agent-routing";
 
 /**
  * GET /api/agents/:id — Get a single agent's public details
@@ -23,7 +24,7 @@ export async function GET(
     const tierError = await requireTier(db, user, "browse");
     if (tierError) return tierError;
 
-    if (!id || typeof id !== "string" || id.length > 20) {
+    if (!id || typeof id !== "string" || id.length > 30) {
       return NextResponse.json({ error: "Invalid agent ID" }, { status: 400 });
     }
 
@@ -35,6 +36,12 @@ export async function GET(
 
     // Don't expose system_prompt to non-creators
     const isCreator = user.address.toLowerCase() === agent.creator_address.toLowerCase();
+
+    let example_prompts: string[] = [];
+    try { example_prompts = JSON.parse((agent as any).example_prompts || "[]"); } catch {}
+
+    let related_agents: Array<{ id: string; name: string; icon: string }> = [];
+    try { related_agents = getRelatedAgentInfo(JSON.parse((agent as any).related_agents || "[]")); } catch {}
 
     const response: AgentPublic & { system_prompt?: string } = {
       id: agent.id,
@@ -48,7 +55,10 @@ export async function GET(
       usage_count: agent.usage_count,
       upvotes: agent.upvotes,
       downvotes: agent.downvotes,
+      status: agent.status,
       created_at: agent.created_at,
+      example_prompts,
+      ...(related_agents.length > 0 && { related_agents }),
     };
 
     // Only the creator can see the system prompt

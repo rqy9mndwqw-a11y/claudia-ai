@@ -17,6 +17,12 @@ import { useRouter } from "next/navigation";
  * - Survives page navigation, refresh, and tab close
  * - Auto-expires after 24 hours (matches server-side TTL)
  * - Cleared on wallet disconnect
+ *
+ * States:
+ * - "checking"      — reading localStorage, brief spinner
+ * - "authenticated" — session found/created, ready to use
+ * - "needs_auth"    — no session, will prompt SIWE
+ * - "error"         — network/signing error, show retry
  */
 
 const SESSION_TTL = 24 * 60 * 60 * 1000; // 24 hours in ms
@@ -65,52 +71,112 @@ function clearSession(address: string): void {
   } catch {}
 }
 
+type SessionState = "checking" | "authenticated" | "needs_auth" | "error";
+
+/**
+ * Try to load session from localStorage for any recent address.
+ * Scans localStorage keys to find a valid session even before wagmi provides the address.
+ */
+function loadAnySession(): { token: string; address: string } | null {
+  try {
+    let best: { token: string; address: string; expiry: number } | null = null;
+
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key?.startsWith("claudia_session_")) continue;
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      const session: StoredSession = JSON.parse(raw);
+      if (Date.now() > session.expiry) {
+        localStorage.removeItem(key);
+        continue;
+      }
+      const addr = key.replace("claudia_session_", "");
+      // Pick the session with the latest expiry (most recently created)
+      if (!best || session.expiry > best.expiry) {
+        best = { token: session.token, address: addr, expiry: session.expiry };
+      }
+    }
+
+    return best ? { token: best.token, address: best.address } : null;
+  } catch {}
+  return null;
+}
+
 export function useSessionToken() {
   const { isConnected, address } = useAccount();
   const { signMessageAsync } = useSignMessage();
   const router = useRouter();
-  const [sessionToken, setSessionToken] = useState<string | null>(null);
+
+  // Initialize synchronously from localStorage — survives remounts
+  const [sessionToken, setSessionToken] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    const cached = loadAnySession();
+    return cached?.token ?? null;
+  });
+  const [sessionState, setSessionState] = useState<SessionState>(() => {
+    if (typeof window === "undefined") return "checking";
+    return loadAnySession() ? "authenticated" : "checking";
+  });
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [promoCredits, setPromoCredits] = useState(0);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const authAttemptedRef = useRef(false);
+  const mountedRef = useRef(true);
 
-  // On mount + address change: check localStorage for existing session
+  // Track mount state
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
+  // When address becomes available: verify the cached session matches, or load fresh
   useEffect(() => {
     if (!address) {
-      setSessionToken(null);
+      // Don't clear session here — wagmi may just be reconnecting
+      // Only clear if wallet is explicitly disconnected (handled below)
       return;
     }
 
     const existing = loadSession(address);
     if (existing) {
       setSessionToken(existing);
-      authAttemptedRef.current = true; // Don't re-prompt
-    } else {
-      authAttemptedRef.current = false; // Allow one auth attempt
+      setSessionState("authenticated");
+      authAttemptedRef.current = true;
+    } else if (sessionState !== "authenticated") {
+      // Only go to needs_auth if we don't already have a valid session
+      setSessionState("needs_auth");
+      authAttemptedRef.current = false;
     }
   }, [address]);
 
-  // Redirect to landing if wallet disconnects
+  // Clear session on explicit disconnect only — not during wagmi reconnection.
+  // wagmi briefly returns isConnected=false with a stale address during page navigation.
+  // Only clear if the user explicitly disconnected (address goes from defined to undefined).
+  const prevAddressRef = useRef(address);
   useEffect(() => {
-    if (!isConnected) {
-      // Clear session for the disconnected wallet
-      if (address) clearSession(address);
+    // Wallet was connected (had address) and is now fully disconnected (no address)
+    if (prevAddressRef.current && !address && !isConnected) {
+      clearSession(prevAddressRef.current);
       setSessionToken(null);
-
-      const timer = setTimeout(() => {
-        router.push("/");
-      }, 2000);
-      return () => clearTimeout(timer);
+      setSessionState("checking");
+      router.push("/");
     }
-  }, [isConnected, address, router]);
+    prevAddressRef.current = address;
+  }, [isConnected, address]);
 
-  // SIWE authentication — only runs if no cached session exists
+  // SIWE authentication
   const authenticate = useCallback(async () => {
-    if (!address || sessionToken || isAuthenticating || authAttemptedRef.current) return;
-    authAttemptedRef.current = true; // Prevent double-prompt
+    if (!address || isAuthenticating) return;
+    authAttemptedRef.current = true;
     setIsAuthenticating(true);
+    setAuthError(null);
+    setSessionState("checking");
 
     try {
       const nonceRes = await fetch("/api/session");
+      if (!nonceRes.ok) throw new Error("Failed to get nonce. Check your connection.");
+
       const { message } = await nonceRes.json() as any;
       const signature = await signMessageAsync({ message });
       const verifyRes = await fetch("/api/session/verify", {
@@ -119,28 +185,62 @@ export function useSessionToken() {
         body: JSON.stringify({ address, signature, message }),
       });
 
-      if (verifyRes.ok) {
-        const { token } = await verifyRes.json() as any;
-        setSessionToken(token);
-        saveSession(address, token);
+      if (!verifyRes.ok) {
+        const data = await verifyRes.json().catch(() => null) as any;
+        throw new Error(data?.error || "Signature verification failed");
       }
-    } catch {
-      // User rejected sign or network error — don't retry automatically
-      // They can refresh or reconnect to try again
-    } finally {
-      setIsAuthenticating(false);
-    }
-  }, [address, sessionToken, isAuthenticating, signMessageAsync]);
 
-  // Trigger auth only when:
-  // - Wallet connected + address known
-  // - No existing session (localStorage was empty)
-  // - Haven't already attempted this mount
+      const verifyData = await verifyRes.json() as any;
+      if (mountedRef.current) {
+        setSessionToken(verifyData.token);
+        saveSession(address, verifyData.token);
+        setSessionState("authenticated");
+        if (verifyData.promoCredits) {
+          setPromoCredits(verifyData.promoCredits);
+        }
+      }
+    } catch (err) {
+      if (mountedRef.current) {
+        const msg = (err as Error).message;
+        if (msg.includes("rejected") || msg.includes("denied")) {
+          setAuthError("Signature rejected. Click retry to try again.");
+        } else {
+          setAuthError(msg);
+        }
+        setSessionState("error");
+      }
+    } finally {
+      if (mountedRef.current) {
+        setIsAuthenticating(false);
+      }
+    }
+  }, [address, isAuthenticating, signMessageAsync]);
+
+  // Auto-trigger auth when needed (only once per mount/address change)
   useEffect(() => {
-    if (isConnected && address && !sessionToken && !isAuthenticating && !authAttemptedRef.current) {
+    if (isConnected && address && sessionState === "needs_auth" && !authAttemptedRef.current) {
       authenticate();
     }
-  }, [isConnected, address, sessionToken, isAuthenticating, authenticate]);
+  }, [isConnected, address, sessionState, authenticate]);
 
-  return { sessionToken, isConnected, address, isAuthenticating };
+  // Retry function for error state
+  const retry = useCallback(() => {
+    authAttemptedRef.current = false;
+    setAuthError(null);
+    setSessionState("needs_auth");
+  }, []);
+
+  const dismissPromo = useCallback(() => setPromoCredits(0), []);
+
+  return {
+    sessionToken,
+    isConnected,
+    address,
+    isAuthenticating,
+    sessionState,
+    authError,
+    retry,
+    promoCredits,
+    dismissPromo,
+  };
 }

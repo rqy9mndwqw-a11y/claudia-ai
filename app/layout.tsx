@@ -1,14 +1,13 @@
 import type { Metadata } from "next";
 import Providers from "@/components/Providers";
-import FloatingClaudia from "@/components/FloatingClaudia";
 import "./globals.css";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Claudia AI — DeFi Without the Drama",
+  title: "CLAUDIA — AI Intelligence for Speculative Assets",
   description:
-    "AI-powered DeFi assistant that explains yield opportunities in plain English. When Claude won't, Claudia will.",
+    "Token-gated AI agents covering crypto markets, on-chain data, and speculative assets. Every query burns $CLAUDIA supply. Built on Base.",
   icons: { icon: "/favicon.svg" },
 };
 
@@ -22,7 +21,6 @@ export default function RootLayout({
       <body className="min-h-screen bg-bg font-body text-zinc-200 antialiased">
         <Providers>
           {children}
-          <FloatingClaudia />
         </Providers>
       </body>
     </html>

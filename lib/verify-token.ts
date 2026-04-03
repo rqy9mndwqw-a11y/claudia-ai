@@ -2,6 +2,8 @@ import { createPublicClient, http, formatUnits, fallback } from "viem";
 import { base } from "viem/chains";
 import { CLAUDIA_CONTRACT, ERC20_ABI, MIN_CLAUDIA_BALANCE } from "./contracts";
 
+const CACHE_TTL_MS = 60_000; // 60 seconds
+
 /**
  * Create a fresh public client per request.
  * On CF Workers, a module-level singleton can cache transport-level
@@ -22,7 +24,6 @@ function createClient() {
 const MAX_ATTEMPTS = 3;
 
 function backoffMs(attempt: number): number {
-  // 500ms, 1500ms, 4500ms
   return 500 * Math.pow(3, attempt);
 }
 
@@ -31,9 +32,43 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
+ * Check D1 balance cache. Returns cached balance if fresh, null if expired/missing.
+ */
+async function getCachedBalance(address: string): Promise<number | null> {
+  try {
+    const { getDB } = await import("./marketplace/db");
+    const db = getDB();
+    const row = await db.prepare(
+      "SELECT balance, checked_at FROM balance_cache WHERE address = ?"
+    ).bind(address.toLowerCase()).first<{ balance: string; checked_at: number }>();
+
+    if (!row) return null;
+    if (Date.now() - row.checked_at > CACHE_TTL_MS) return null;
+
+    return Number(row.balance);
+  } catch {
+    return null; // Cache unavailable — fall through to RPC
+  }
+}
+
+/**
+ * Write balance to D1 cache.
+ */
+async function setCachedBalance(address: string, balance: number): Promise<void> {
+  try {
+    const { getDB } = await import("./marketplace/db");
+    const db = getDB();
+    await db.prepare(
+      "INSERT OR REPLACE INTO balance_cache (address, balance, checked_at) VALUES (?, ?, ?)"
+    ).bind(address.toLowerCase(), String(balance), Date.now()).run();
+  } catch {
+    // Cache write failure is non-fatal
+  }
+}
+
+/**
  * Server-side verification of $CLAUDIA token balance.
- * Creates a fresh viem client per attempt to avoid stale transport state.
- * 3 attempts with exponential backoff.
+ * Checks D1 cache first (60s TTL). Falls back to RPC with retry on miss.
  */
 export async function verifyTokenBalance(
   address: string,
@@ -44,6 +79,14 @@ export async function verifyTokenBalance(
   }
 
   const min = minRequired ?? Number(MIN_CLAUDIA_BALANCE);
+
+  // Check D1 cache first (~30ms vs up to 19s for RPC)
+  const cached = await getCachedBalance(address);
+  if (cached !== null) {
+    return { authorized: cached >= min, balance: cached };
+  }
+
+  // Cache miss — hit RPC with retry
   let lastError: Error | undefined;
 
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
@@ -69,6 +112,10 @@ export async function verifyTokenBalance(
       ]);
 
       const balance = Number(formatUnits(rawBalance as bigint, decimals as number));
+
+      // Cache the result for next time
+      await setCachedBalance(address, balance);
+
       return { authorized: balance >= min, balance };
     } catch (err) {
       lastError = err as Error;
