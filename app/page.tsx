@@ -2,7 +2,7 @@
 
 import { useAccount } from "wagmi";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, memo } from "react";
 import WalletConnect from "@/components/WalletConnect";
 import { useBurnedAmount } from "@/hooks/useBurnedAmount";
 import { AGENT_ID_TO_INFO } from "@/lib/marketplace/agent-routing";
@@ -11,29 +11,60 @@ import { AGENT_CREDIT_TIERS } from "@/lib/credits/agent-tiers";
 const AERODROME_SWAP_URL =
   "https://aerodrome.finance/swap?from=0x4200000000000000000000000000000000000006&to=0x98eBd4Ac5d4f7022140c51e03CAc39d9F94CDE9B";
 
+// Category color mapping for agent card borders
+const AGENT_CATEGORY_COLORS: Record<string, string> = {
+  "claudia-yield-scout": "hover:border-green-500/40 hover:shadow-[0_0_15px_rgba(34,197,94,0.08)]",
+  "claudia-chart-reader": "hover:border-blue-400/40 hover:shadow-[0_0_15px_rgba(96,165,250,0.08)]",
+  "claudia-risk-check": "hover:border-purple-400/40 hover:shadow-[0_0_15px_rgba(192,132,252,0.08)]",
+  "claudia-security-check": "hover:border-cyan-400/40 hover:shadow-[0_0_15px_rgba(34,211,238,0.08)]",
+  "claudia-token-analyst": "hover:border-amber-400/40 hover:shadow-[0_0_15px_rgba(251,191,36,0.08)]",
+  "claudia-memecoin-radar": "hover:border-pink-400/40 hover:shadow-[0_0_15px_rgba(244,114,182,0.08)]",
+  "claudia-pulse": "hover:border-violet-400/40 hover:shadow-[0_0_15px_rgba(167,139,250,0.08)]",
+  "claudia-gas-guru": "hover:border-orange-400/40 hover:shadow-[0_0_15px_rgba(251,146,60,0.08)]",
+  "claudia-defi-101": "hover:border-emerald-400/40 hover:shadow-[0_0_15px_rgba(52,211,153,0.08)]",
+  "claudia-onchain-sleuth": "hover:border-indigo-400/40 hover:shadow-[0_0_15px_rgba(129,140,248,0.08)]",
+  "claudia-base-guide": "hover:border-sky-400/40 hover:shadow-[0_0_15px_rgba(56,189,248,0.08)]",
+  "claudia-airdrop-hunter": "hover:border-teal-400/40 hover:shadow-[0_0_15px_rgba(45,212,191,0.08)]",
+};
+
 const AGENTS = Object.entries(AGENT_ID_TO_INFO).map(([id, info]) => ({
   id,
   ...info,
   credits: AGENT_CREDIT_TIERS[id] ?? 1,
 }));
 
-function AgentPreviewCard({ agent }: { agent: typeof AGENTS[number] }) {
+// ── Agent Preview Card (memoized to avoid re-renders on wallet state change) ──
+
+const AgentPreviewCard = memo(function AgentPreviewCard({
+  agent,
+}: {
+  agent: (typeof AGENTS)[number];
+}) {
+  const hoverColor = AGENT_CATEGORY_COLORS[agent.id] || "hover:border-accent/30 hover:shadow-[0_0_15px_rgba(232,41,91,0.08)]";
+
   return (
-    <div className="group relative bg-surface rounded-xl p-4 border border-white/5 hover:border-purple-500/30 transition-all duration-200">
-      <div className="absolute inset-0 rounded-xl bg-white/[0.01] group-hover:bg-purple-500/[0.04] transition-colors" />
-      <div className="relative flex items-start gap-3">
-        <span className="text-xl shrink-0 opacity-50 group-hover:opacity-80 transition-opacity">{agent.icon}</span>
+    <div
+      className={`group relative bg-surface rounded-lg border border-white/[0.06] p-3.5 transition-all duration-300 ${hoverColor}`}
+    >
+      <div className="flex items-start gap-2.5">
+        <span className="text-lg shrink-0 opacity-40 group-hover:opacity-90 transition-opacity duration-300">
+          {agent.icon}
+        </span>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-white/80 text-sm font-medium">{agent.name}</span>
-            <span className="text-[10px] text-purple-400/60 bg-purple-500/10 px-1.5 py-0.5 rounded">
-              {agent.credits} {agent.credits === 1 ? "credit" : "credits"}
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className="text-white/80 text-[13px] font-medium group-hover:text-white transition-colors">
+              {agent.name}
+            </span>
+            <span className="text-[9px] text-white/20 bg-white/[0.04] px-1.5 py-0.5 rounded font-mono">
+              {agent.credits}cr
             </span>
           </div>
-          <p className="text-zinc-500 text-xs leading-relaxed">{agent.description}</p>
+          <p className="text-zinc-600 text-[11px] leading-relaxed group-hover:text-zinc-500 transition-colors">
+            {agent.description}
+          </p>
         </div>
-        <div className="shrink-0 text-white/10 group-hover:text-white/20 transition-colors" title="Connect to unlock">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <div className="shrink-0 text-white/[0.06] group-hover:text-white/20 transition-all duration-300">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
             <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
             <path d="M7 11V7a5 5 0 0 1 10 0v4" />
           </svg>
@@ -41,13 +72,43 @@ function AgentPreviewCard({ agent }: { agent: typeof AGENTS[number] }) {
       </div>
     </div>
   );
-}
+});
+
+// ── Stat Ticker ──
+
+const StatTicker = memo(function StatTicker({
+  value,
+  label,
+  glow,
+}: {
+  value: string;
+  label: string;
+  glow?: boolean;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-0.5">
+      <span
+        className={`font-mono text-sm md:text-base font-medium tabular-nums ${
+          glow ? "text-accent animate-stat-glow" : "text-white/70"
+        }`}
+      >
+        {value}
+      </span>
+      <span className="text-[10px] text-zinc-600 uppercase tracking-widest">{label}</span>
+    </div>
+  );
+});
+
+// ── Main Page ──
 
 export default function Home() {
   const { isConnected } = useAccount();
   const router = useRouter();
   const { burned } = useBurnedAmount();
-  const [stats, setStats] = useState<{ holders?: number; totalMessages?: number } | null>(null);
+  const [stats, setStats] = useState<{
+    holders?: number;
+    totalMessages?: number;
+  } | null>(null);
 
   useEffect(() => {
     if (isConnected) {
@@ -57,17 +118,30 @@ export default function Home() {
 
   useEffect(() => {
     fetch("/api/public/stats")
-      .then((r) => r.ok ? r.json() as Promise<any> : null)
+      .then((r) => (r.ok ? (r.json() as Promise<any>) : null))
       .then((d: any) => d && setStats({ holders: d.holders, totalMessages: d.totalMessages }))
       .catch(() => {});
   }, []);
 
-  return (
-    <main className="min-h-screen flex flex-col items-center px-4 pb-20">
-      <div className="fixed inset-0 bg-gradient-to-b from-accent/5 via-transparent to-transparent pointer-events-none" />
+  if (isConnected) {
+    return (
+      <main className="min-h-screen flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-accent/40 border-t-accent rounded-full animate-spin" />
+          <p className="text-zinc-500 text-sm">Redirecting...</p>
+        </div>
+      </main>
+    );
+  }
 
-      {/* ── Hero (untouched) ── */}
-      <div className="relative z-10 flex flex-col items-center text-center max-w-2xl pt-[20vh]">
+  return (
+    <main className="min-h-screen flex flex-col items-center px-4 pb-24">
+      {/* Background gradient layers */}
+      <div className="fixed inset-0 bg-gradient-to-b from-accent/[0.04] via-transparent to-transparent pointer-events-none" />
+      <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,rgba(232,41,91,0.06)_0%,transparent_60%)] pointer-events-none" />
+
+      {/* ── Hero ── */}
+      <div className="relative z-10 flex flex-col items-center text-center max-w-2xl pt-[18vh]">
         <div className="w-24 h-24 rounded-full bg-surface border-2 border-accent/30 flex items-center justify-center mb-8 glow">
           <img
             src="/claudia-logo.svg"
@@ -88,130 +162,193 @@ export default function Home() {
         <p className="text-zinc-500 text-sm mb-10 italic tracking-wide">
           &ldquo;When Claude won&apos;t, Claudia will.&rdquo;
         </p>
-        <WalletConnect />
+
+        {/* CTA Button with glow */}
+        <div className="animate-pulse-glow rounded-xl">
+          <WalletConnect />
+        </div>
+
+        {/* Feature cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-16 w-full">
           {[
-            { title: "Market Scanner", desc: "Real protocol data from DeFiLlama. No guessing, no stale numbers." },
-            { title: "Plain English", desc: "Ask anything about crypto. Claudia explains it like a smart friend." },
-            { title: "Your Keys", desc: "Claudia never holds your funds. You sign every transaction yourself." },
+            {
+              icon: (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-accent/60">
+                  <path d="M19.07 4.93A10 10 0 0 0 6.99 3.34" /><path d="M4 6h.01" />
+                  <path d="M2.29 9.62A10 10 0 1 0 21.31 8.35" /><circle cx="12" cy="12" r="2" />
+                  <path d="m13.41 10.59 5.66-5.66" />
+                </svg>
+              ),
+              title: "Market Scanner",
+              desc: "Real protocol data from DeFiLlama. No guessing, no stale numbers.",
+            },
+            {
+              icon: (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-accent/60">
+                  <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
+                </svg>
+              ),
+              title: "Plain English",
+              desc: "Ask anything about crypto. Claudia explains it like a smart friend.",
+            },
+            {
+              icon: (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-accent/60">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+              ),
+              title: "Your Keys",
+              desc: "Claudia never holds your funds. You sign every transaction yourself.",
+            },
           ].map((f) => (
-            <div key={f.title} className="bg-surface rounded-xl p-5 border border-white/5 hover:border-white/10 hover:bg-surface-light/50 transition-all duration-200">
-              <h3 className="font-heading font-bold text-white mb-1.5">{f.title}</h3>
+            <div
+              key={f.title}
+              className="bg-surface rounded-xl p-5 border border-white/[0.06] hover:border-white/[0.12] transition-all duration-300"
+            >
+              <div className="mb-3">{f.icon}</div>
+              <h3 className="font-heading font-bold text-white text-[15px] mb-1.5">{f.title}</h3>
               <p className="text-zinc-500 text-sm leading-relaxed">{f.desc}</p>
             </div>
           ))}
         </div>
       </div>
 
-      {/* ── Section 1: Agent Preview Grid ── */}
+      {/* ── Stats Ticker Row ── */}
+      {(stats || burned) && (
+        <div className="relative z-10 mt-16 flex items-center justify-center gap-8 md:gap-12">
+          {stats?.holders && stats.holders > 0 && (
+            <StatTicker value={stats.holders.toLocaleString()} label="Holders" />
+          )}
+          {stats?.totalMessages && stats.totalMessages > 0 && (
+            <StatTicker value={stats.totalMessages.toLocaleString()} label="Analyses" />
+          )}
+          {burned && burned > 0 && (
+            <StatTicker value={Math.floor(burned).toLocaleString()} label="Burned" glow />
+          )}
+          <div className="hidden md:block h-8 w-px bg-white/[0.06]" />
+          {burned && burned > 0 && (
+            <div className="hidden md:flex items-center gap-1.5 text-xs text-zinc-600">
+              <span className="animate-burn-gold">🔥</span>
+              <span className="font-mono text-amber-400/60">{Math.floor(burned).toLocaleString()}</span>
+              <span>$CLAUDIA burned forever</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Agent Preview Grid ── */}
       <div className="relative z-10 w-full max-w-3xl mt-20">
-        <h2 className="font-heading text-xl font-bold text-white/90 text-center mb-6">
-          What you unlock
-        </h2>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        <div className="flex items-center justify-center gap-3 mb-8">
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent to-white/[0.06]" />
+          <h2 className="font-heading text-lg font-bold text-white/80 tracking-tight">
+            What you unlock
+          </h2>
+          <div className="h-px flex-1 bg-gradient-to-l from-transparent to-white/[0.06]" />
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5">
           {AGENTS.map((agent) => (
             <AgentPreviewCard key={agent.id} agent={agent} />
           ))}
         </div>
       </div>
 
-      {/* ── Stats Row ── */}
-      {(stats || burned) && (
-        <div className="relative z-10 flex items-center justify-center gap-4 md:gap-8 mt-12 flex-wrap">
-          {stats?.holders && stats.holders > 0 && (
-            <span className="text-zinc-500 text-xs">
-              <span className="text-white/60 font-medium">{stats.holders.toLocaleString()}</span> holders
-            </span>
-          )}
-          {stats?.totalMessages && stats.totalMessages > 0 && (
-            <span className="text-zinc-500 text-xs">
-              <span className="text-white/60 font-medium">{stats.totalMessages.toLocaleString()}</span> analyses run
-            </span>
-          )}
-          {burned && burned > 0 && (
-            <span className="text-zinc-500 text-xs">
-              <span className="text-white/60 font-medium">{Math.floor(burned).toLocaleString()}</span> $CLAUDIA burned
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* ── Section 2: Sample Analysis Output ── */}
-      <div className="relative z-10 w-full max-w-2xl mt-16">
-        <div className="flex items-center justify-center gap-2 mb-4">
-          <h2 className="font-heading text-lg font-bold text-white/90">
+      {/* ── Terminal Output: Sample Analysis ── */}
+      <div className="relative z-10 w-full max-w-2xl mt-20">
+        <div className="flex items-center justify-center gap-2.5 mb-5">
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent to-white/[0.06]" />
+          <h2 className="font-heading text-lg font-bold text-white/80 tracking-tight">
             CLAUDIA&apos;s latest read
           </h2>
-          <span className="text-[10px] text-amber-400/70 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded uppercase tracking-wider">
+          <span className="text-[9px] text-amber-400/60 bg-amber-500/[0.08] border border-amber-500/20 px-1.5 py-0.5 rounded uppercase tracking-widest font-mono">
             sample
           </span>
+          <div className="h-px flex-1 bg-gradient-to-l from-transparent to-white/[0.06]" />
         </div>
-        <div className="relative bg-surface rounded-xl border border-white/5 overflow-hidden">
-          <div className="p-5 pb-16">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-7 h-7 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center">
-                <span className="text-purple-400 text-xs font-bold">C</span>
+
+        <div className="relative bg-surface rounded-xl border border-white/[0.06] overflow-hidden">
+          {/* Terminal header bar */}
+          <div className="flex items-center gap-1.5 px-4 py-2.5 border-b border-white/[0.04]">
+            <div className="w-2.5 h-2.5 rounded-full bg-red-500/40" />
+            <div className="w-2.5 h-2.5 rounded-full bg-amber-500/40" />
+            <div className="w-2.5 h-2.5 rounded-full bg-green-500/40" />
+            <span className="text-[10px] text-zinc-600 ml-2 font-mono">claudia-terminal</span>
+          </div>
+
+          <div className="p-5 pb-20">
+            {/* Agent header */}
+            <div className="flex items-center gap-2.5 mb-4">
+              <div className="w-6 h-6 rounded-full bg-accent/20 border border-accent/30 flex items-center justify-center">
+                <span className="text-accent text-[10px] font-bold">C</span>
               </div>
-              <span className="text-white/60 text-xs font-medium">CLAUDIA</span>
-              <span className="text-white/20 text-xs">just now</span>
+              <span className="text-accent/80 text-xs font-mono font-medium">CLAUDIA</span>
+              <span className="text-zinc-700 text-[10px] font-mono">2m ago</span>
             </div>
-            <p className="text-white/70 text-sm leading-relaxed mb-4">
-              checked WETH/USDC on Base. liquidity is healthy, fee APR sitting at
-              18.3%. IL risk is manageable at current volatility. volume trending up
-              last 4 hours which means real interest, not wash trades. this one&apos;s
-              worth watching if you&apos;re already in the ecosystem. not a moonshot —
-              a grinder. the good kind.
-            </p>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs text-green-400 bg-green-500/10 border border-green-500/30 px-2 py-0.5 rounded">
+
+            {/* Terminal output */}
+            <div className="font-mono text-[13px] leading-relaxed text-zinc-400 space-y-2">
+              <p>
+                <span className="text-accent/50">$</span>{" "}
+                <span className="text-white/60">checked WETH/USDC on Base.</span> liquidity is healthy,
+                fee APR sitting at{" "}
+                <span className="text-green-400/80">18.3%</span>. IL risk is
+                manageable at current volatility.
+              </p>
+              <p>
+                volume trending up last 4 hours which means real interest, not
+                wash trades. this one&apos;s worth watching if you&apos;re already
+                in the ecosystem.
+              </p>
+              <p className="text-zinc-500">
+                not a moonshot — a grinder. the good kind.
+                <span className="inline-block w-2 h-4 bg-accent/60 ml-0.5 -mb-0.5 animate-cursor-blink" />
+              </p>
+            </div>
+
+            {/* Verdict chips */}
+            <div className="flex items-center gap-2 mt-4 flex-wrap">
+              <span className="text-[11px] font-mono text-green-400 bg-green-500/[0.08] border border-green-500/20 px-2 py-0.5 rounded">
                 HOLD
               </span>
-              <span className="text-xs text-white/40 bg-white/[0.04] border border-white/[0.08] px-2 py-0.5 rounded">
+              <span className="text-[11px] font-mono text-white/30 bg-white/[0.03] border border-white/[0.06] px-2 py-0.5 rounded">
                 7/10
               </span>
-              <span className="text-xs text-amber-400/60">
+              <span className="text-[11px] font-mono text-amber-400/50">
                 Low risk
               </span>
             </div>
           </div>
+
           {/* Fade overlay */}
-          <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-surface via-surface/95 to-transparent flex items-end justify-center pb-4">
-            <p className="text-zinc-400 text-xs text-center">
-              Connect wallet + hold $CLAUDIA to see full analysis
+          <div className="absolute bottom-0 left-0 right-0 h-28 bg-gradient-to-t from-surface via-surface/95 to-transparent flex items-end justify-center pb-5">
+            <p className="text-zinc-500 text-xs font-mono">
+              connect wallet + hold{" "}
+              <span className="text-accent/60">$CLAUDIA</span> to see full
+              analysis
             </p>
           </div>
         </div>
-        <p className="text-zinc-600 text-[11px] text-center mt-2">
-          Requires 10,000 $CLAUDIA on Base
+
+        <p className="text-zinc-700 text-[10px] text-center mt-2.5 font-mono">
+          requires 10,000 $CLAUDIA on Base
         </p>
       </div>
 
-      {/* ── Section 3: Burn Counter ── */}
-      {burned && burned > 0 && (
-        <div className="relative z-10 mt-12 text-center">
-          <p className="text-zinc-500 text-sm">
-            <span className="mr-1">🔥</span>
-            <span className="text-amber-400/80 font-medium">{Math.floor(burned).toLocaleString()}</span>
-            <span className="text-zinc-600"> $CLAUDIA burned forever</span>
-          </p>
-        </div>
-      )}
-
-      {/* ── Section 4: Buy CTA ── */}
-      <div className="relative z-10 mt-12 flex flex-col items-center gap-3">
-        <p className="text-zinc-500 text-sm">Don&apos;t have $CLAUDIA?</p>
+      {/* ── Buy CTA ── */}
+      <div className="relative z-10 mt-16 flex flex-col items-center gap-4">
+        <p className="text-zinc-600 text-sm">Don&apos;t have $CLAUDIA?</p>
         <a
           href={AERODROME_SWAP_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-sm text-purple-400 hover:text-purple-300 bg-purple-500/10 hover:bg-purple-500/15 border border-purple-500/20 hover:border-purple-500/40 px-5 py-2.5 rounded-lg transition-all duration-200"
+          className="group text-sm font-medium text-white/70 hover:text-white bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] hover:border-accent/30 px-6 py-2.5 rounded-lg transition-all duration-300 hover:shadow-[0_0_20px_rgba(232,41,91,0.1)]"
         >
-          Buy on Aerodrome →
+          Buy on Aerodrome
+          <span className="inline-block ml-1.5 group-hover:translate-x-0.5 transition-transform">→</span>
         </a>
       </div>
 
-      {/* ── Footer note ── */}
-      <p className="relative z-10 text-zinc-600 text-xs mt-12">
+      {/* ── Footer ── */}
+      <p className="relative z-10 text-zinc-700 text-[10px] mt-16 font-mono tracking-wider">
         Not financial advice.
       </p>
     </main>
