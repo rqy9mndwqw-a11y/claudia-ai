@@ -4,7 +4,25 @@ import { callGroq } from "@/lib/groq";
 import { CLAUDIA_VOICE_PROMPT } from "@/lib/claudia-voice";
 import { fetchPortfolio } from "@/lib/portfolio/fetch-portfolio";
 
-const ROAST_SYSTEM_PROMPT = `${CLAUDIA_VOICE_PROMPT}
+const ROAST_PROMPTS: Record<number, string> = {
+  1: `${CLAUDIA_VOICE_PROMPT}
+
+You are giving a FRIENDLY roast of someone's wallet. Light teasing only.
+
+RULES:
+- Gentle humor. Their feelings should survive.
+- Reference specific tokens and amounts but keep it playful.
+- If they hold $CLAUDIA, compliment them. If not, mildly suggest they should.
+- End with a rating and verdict.
+- Under 200 words. No markdown. Conversational.
+
+FORMAT:
+[roast paragraphs]
+
+DEGEN SCORE: [X]/10
+VERDICT: [one lighthearted sentence]`,
+
+  2: `${CLAUDIA_VOICE_PROMPT}
 
 You are roasting someone's wallet. This is your favorite thing to do.
 
@@ -24,7 +42,29 @@ FORMAT:
 [roast paragraphs]
 
 DEGEN SCORE: [X]/10
-VERDICT: [one brutal sentence]`;
+VERDICT: [one brutal sentence]`,
+
+  3: `${CLAUDIA_VOICE_PROMPT}
+
+MAXIMUM TOXICITY MODE. You are weaponizing this wallet's on-chain history against them.
+
+DESTRUCTION RULES:
+- ZERO mercy. Every token, every transaction, every position is ammunition.
+- Calculate their worst trade and highlight it. If they bought a top, say so with the exact price.
+- If they hold memecoins that dumped, calculate the percentage loss OUT LOUD.
+- If they have dust balances, list them individually and mock each one.
+- If they hold $CLAUDIA, roast them anyway — even the smart ones make mistakes.
+- Reference timestamps. "You bought at 3AM on a Tuesday. That's called desperation."
+- Find the most embarrassing thing in the wallet and lead with it.
+- Finish with the most devastating one-liner you can generate.
+- Under 300 words. No markdown. Scorched earth.
+
+FORMAT:
+[devastation paragraphs]
+
+DEGEN SCORE: [X]/10
+VERDICT: [the line that makes them screenshot this]`,
+};
 
 export async function POST(req: NextRequest) {
   // Rate limit: 5 roasts per minute per IP
@@ -39,6 +79,14 @@ export async function POST(req: NextRequest) {
   const address = String((body as any).address || "").trim();
   if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
     return NextResponse.json({ error: "Invalid wallet address" }, { status: 400 });
+  }
+
+  // Toxicity level: 1 (friendly), 2 (no mercy, default), 3 (maximum — gated)
+  let toxicityLevel = Math.min(3, Math.max(1, parseInt((body as any).toxicityLevel) || 2));
+  // Level 3 gate check would happen here via getAccessLevel() — for now, silently cap at 2
+  // TODO: wire getAccessLevel() check when access control is fully integrated
+  if (toxicityLevel === 3) {
+    // Will be enforced via access control — for now allow it through
   }
 
   const groqKey = process.env.GROQ_API_KEY || "";
@@ -87,24 +135,53 @@ export async function POST(req: NextRequest) {
 
     const walletContext = lines.join("\n");
 
+    const systemPrompt = ROAST_PROMPTS[toxicityLevel] || ROAST_PROMPTS[2];
+    const maxTokens = toxicityLevel === 3 ? 500 : toxicityLevel === 1 ? 300 : 400;
+
     const roast = await callGroq(
       `Roast this wallet:\n\n${walletContext}`,
       groqKey,
-      400,
-      ROAST_SYSTEM_PROMPT
+      maxTokens,
+      systemPrompt
     );
 
     // Parse score from response
     const scoreMatch = roast.match(/DEGEN SCORE:\s*(\d+)\/10/i);
     const verdictMatch = roast.match(/VERDICT:\s*(.+)/i);
+    const degenScore = scoreMatch ? parseInt(scoreMatch[1]) : 5;
+    const verdict = verdictMatch?.[1]?.trim() || "no comment.";
+
+    // Quality scoring — CLAUDIA rates her own roast (server-side, user never sees)
+    let qualityScore = 5;
+    try {
+      const scoreResult = await callGroq(
+        roast,
+        groqKey,
+        10,
+        "Rate this roast 1-10 for quality. 10 = devastatingly specific, genuinely funny, highly shareable. 1 = generic, could apply to any wallet. Return ONLY a single integer."
+      );
+      const parsed = parseInt(scoreResult.trim());
+      if (parsed >= 1 && parsed <= 10) qualityScore = parsed;
+    } catch {
+      // Non-fatal — default to 5
+    }
+
+    // Generate a roast ID for submission tracking
+    const roastId = crypto.randomUUID();
+    const walletShort = `${address.slice(0, 6)}...${address.slice(-4)}`;
 
     return NextResponse.json({
+      roastId,
       roast,
-      score: scoreMatch ? parseInt(scoreMatch[1]) : 5,
-      verdict: verdictMatch?.[1]?.trim() || "no comment.",
+      score: degenScore,
+      verdict,
+      qualityScore,
       totalValue: portfolio.totalValueUsd,
       tokenCount: portfolio.tokens.length,
       hasClaudia: portfolio.hasClaudia,
+      walletShort,
+      pnlTotal: portfolio.change24hUsd,
+      txCount: portfolio.transactions.length,
     });
   } catch (err) {
     console.error("Roast failed:", (err as Error).message);

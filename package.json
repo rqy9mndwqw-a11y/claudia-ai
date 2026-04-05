@@ -9,6 +9,7 @@
     "deploy": "opennextjs-cloudflare build && cp .open-next/worker.js .open-next/assets/_worker.js"
   },
   "dependencies": {
+    "@farcaster/miniapp-sdk": "^0.3.0",
     "@opennextjs/cloudflare": "latest",
     "@privy-io/react-auth": "^2.5.0",
     "@rainbow-me/rainbowkit": "^2.1.3",

@@ -112,7 +112,7 @@ export default function Home() {
 
   useEffect(() => {
     if (isConnected) {
-      router.push("/chat");
+      router.push("/dashboard");
     }
   }, [isConnected, router]);
 
@@ -245,6 +245,86 @@ export default function Home() {
           {AGENTS.map((agent) => (
             <AgentPreviewCard key={agent.id} agent={agent} />
           ))}
+
+          {/* Special cards */}
+          <div className="group relative bg-surface rounded-lg border border-white/[0.06] border-l-[3px] border-l-orange-400/60 p-3.5 transition-all duration-300 hover:border-white/[0.1]">
+            <div className="flex items-start gap-2.5">
+              <div className="w-7 h-7 rounded-md bg-orange-500/[0.12] flex items-center justify-center shrink-0">
+                <span className="text-sm">🔥</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <span className="text-white/85 text-[13px] font-medium">Roast My Wallet</span>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded font-mono bg-green-500/15 text-green-400/80">FREE</span>
+                </div>
+                <p className="text-zinc-600 text-[11px] leading-relaxed">No token needed. Paste any wallet, get destroyed by AI.</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="group relative bg-surface rounded-lg border border-white/[0.06] border-l-[3px] border-l-blue-400/60 p-3.5 transition-all duration-300 hover:border-white/[0.1]">
+            <div className="flex items-start gap-2.5">
+              <div className="w-7 h-7 rounded-md bg-blue-400/[0.12] flex items-center justify-center shrink-0">
+                <span className="text-sm">🔍</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <span className="text-white/85 text-[13px] font-medium">Rug Check</span>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded font-mono bg-amber-500/15 text-amber-400/80">SOON</span>
+                </div>
+                <p className="text-zinc-600 text-[11px] leading-relaxed">CertiK-powered contract audit. Safe or rug — before you ape.</p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      {/* ── Signal Pit Feature Block ── */}
+      <div className="relative z-10 w-full max-w-3xl mt-12">
+        <div className="relative overflow-hidden rounded-xl border border-purple-500/20 bg-surface p-8 md:p-10">
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_50%,rgba(168,85,247,0.06)_0%,transparent_50%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_70%_50%,rgba(232,41,91,0.04)_0%,transparent_50%)]" />
+          <div className="absolute inset-0 opacity-[0.02]"
+            style={{
+              backgroundImage: "linear-gradient(rgba(168,85,247,0.4) 1px, transparent 1px), linear-gradient(90deg, rgba(168,85,247,0.4) 1px, transparent 1px)",
+              backgroundSize: "40px 40px",
+            }}
+          />
+          <div className="relative z-10">
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-2xl">⚔️</span>
+              <span className="text-[9px] font-mono text-purple-400/60 tracking-[4px] uppercase">Coming Season 01</span>
+            </div>
+            <h3 className="font-heading text-2xl md:text-3xl font-bold text-white mb-3 tracking-tight">
+              The Signal Pit
+            </h3>
+            <p className="text-zinc-400 text-sm leading-relaxed max-w-lg mb-6">
+              Your Signal NFT is a live AI agent. Battle bots. Earn from accuracy.
+              Let the market score your intelligence.
+            </p>
+            <div className="grid grid-cols-3 gap-4 mb-6">
+              {[
+                { label: "Battle", desc: "NFT vs NFT or vs AI bots", icon: "📊" },
+                { label: "Predict", desc: "Spectators wager on outcomes", icon: "🎯" },
+                { label: "Ascend", desc: "Burn $CLAUDIA to level up skills", icon: "🔥" },
+              ].map((f) => (
+                <div key={f.label} className="bg-white/[0.02] border border-white/[0.04] rounded-lg p-3">
+                  <div className="text-base mb-1.5">{f.icon}</div>
+                  <div className="text-white/80 text-xs font-medium mb-0.5">{f.label}</div>
+                  <div className="text-zinc-600 text-[10px] leading-relaxed">{f.desc}</div>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-[10px] font-mono text-purple-400 bg-purple-500/10 border border-purple-500/20 px-4 py-2 rounded-lg">
+                Coming Soon
+              </span>
+              <span className="text-zinc-600 text-[11px]">
+                Mint your Signal NFT to reserve your spot.
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -326,19 +406,30 @@ export default function Home() {
         </p>
       </div>
 
-      {/* ── Buy CTA (Fix 2) ── */}
-      <div className="relative z-10 mt-16 flex flex-col items-center gap-3">
-        <p className="text-zinc-600 text-sm">Don&apos;t have $CLAUDIA?</p>
-        <a
-          href={AERODROME_SWAP_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="group text-sm font-medium text-white/70 hover:text-white bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] hover:border-accent/30 px-6 py-2.5 rounded-lg transition-all duration-300 hover:shadow-[0_0_20px_rgba(232,41,91,0.1)]"
-        >
-          Buy on Aerodrome
-          <span className="inline-block ml-1.5 group-hover:translate-x-0.5 transition-transform">→</span>
-        </a>
-        <p className="text-zinc-700 text-[11px]">then come back and connect your wallet</p>
+      {/* ── Buy CTA ── */}
+      <div className="relative z-10 mt-16 flex flex-col items-center gap-4">
+        <p className="text-zinc-500 text-sm">Don&apos;t have $CLAUDIA?</p>
+        <div className="flex gap-3">
+          <a
+            href="https://pay.coinbase.com/buy/select-asset?appId=claudia&defaultAsset=USDC&defaultNetwork=base"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group text-sm font-medium text-white/70 hover:text-white bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] hover:border-blue-400/30 px-5 py-2.5 rounded-lg transition-all duration-300 hover:shadow-[0_0_20px_rgba(96,165,250,0.1)]"
+          >
+            Get USDC on Base
+            <span className="inline-block ml-1.5 group-hover:translate-x-0.5 transition-transform">→</span>
+          </a>
+          <a
+            href={AERODROME_SWAP_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group text-sm font-medium text-white/70 hover:text-white bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] hover:border-accent/30 px-5 py-2.5 rounded-lg transition-all duration-300 hover:shadow-[0_0_20px_rgba(232,41,91,0.1)]"
+          >
+            Swap on Aerodrome
+            <span className="inline-block ml-1.5 group-hover:translate-x-0.5 transition-transform">→</span>
+          </a>
+        </div>
+        <p className="text-zinc-700 text-[11px]">No crypto yet? Start with a card. USDC on Base in under 2 minutes.</p>
       </div>
 
       {/* ── Footer ── */}

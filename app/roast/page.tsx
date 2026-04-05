@@ -1,17 +1,61 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAccount } from "wagmi";
 import WalletConnect from "@/components/WalletConnect";
+import ShareButtons from "@/components/roast/ShareButtons";
+import {
+  initMiniApp,
+  isMiniApp,
+  getFarcasterWalletAddress,
+} from "@/lib/farcaster/miniapp";
 
 type RoastResult = {
+  roastId: string;
   roast: string;
   score: number;
   verdict: string;
+  qualityScore: number;
   totalValue: number;
   tokenCount: number;
   hasClaudia: boolean;
+  walletShort: string;
+  pnlTotal: number;
+  txCount: number;
 };
+
+const TOXICITY_LEVELS = [
+  {
+    level: 1,
+    name: "Friendly Roast",
+    desc: "Light teasing. Your feelings might survive.",
+    color: "text-green-400",
+    border: "border-green-500/30",
+    bg: "bg-green-500/[0.06]",
+    bgActive: "bg-green-500/[0.12]",
+    gate: null,
+  },
+  {
+    level: 2,
+    name: "No Mercy",
+    desc: "CLAUDIA stops holding back. Specific. Personal.",
+    color: "text-amber-400",
+    border: "border-amber-500/30",
+    bg: "bg-amber-500/[0.06]",
+    bgActive: "bg-amber-500/[0.12]",
+    gate: null,
+  },
+  {
+    level: 3,
+    name: "Maximum Toxicity",
+    desc: "Full destruction. Your on-chain history weaponized.",
+    color: "text-red-400",
+    border: "border-red-500/30",
+    bg: "bg-red-500/[0.06]",
+    bgActive: "bg-red-500/[0.12]",
+    gate: "Hold 25,000 $CLAUDIA or any Signal NFT",
+  },
+];
 
 export default function RoastPage() {
   const { address, isConnected } = useAccount();
@@ -19,8 +63,26 @@ export default function RoastPage() {
   const [result, setResult] = useState<RoastResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [toxicity, setToxicity] = useState(2);
+  const [roastOther, setRoastOther] = useState(false);
+  const [farcasterAddress, setFarcasterAddress] = useState<string | null>(null);
+  const [inMiniApp, setInMiniApp] = useState(false);
 
-  const targetAddress = isConnected ? address : manualAddress.trim();
+  useEffect(() => {
+    isMiniApp().then((isMini) => {
+      if (!isMini) return;
+      setInMiniApp(true);
+      getFarcasterWalletAddress().then((addr) => {
+        if (addr) setFarcasterAddress(addr);
+        // Dismiss splash screen after UI is ready
+        initMiniApp();
+      });
+    });
+  }, []);
+
+  const hasWallet = inMiniApp ? !!farcasterAddress : isConnected;
+  const connectedAddress = inMiniApp ? farcasterAddress : address;
+  const targetAddress = (hasWallet && !roastOther) ? connectedAddress : manualAddress.trim();
   const isValidAddress = /^0x[a-fA-F0-9]{40}$/.test(targetAddress || "");
 
   async function handleRoast() {
@@ -33,7 +95,7 @@ export default function RoastPage() {
       const res = await fetch("/api/roast", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address: targetAddress }),
+        body: JSON.stringify({ address: targetAddress, toxicityLevel: toxicity }),
       });
 
       if (!res.ok) {
@@ -76,28 +138,44 @@ export default function RoastPage() {
 
         {/* Input section */}
         <div className="bg-surface border border-white/[0.06] rounded-xl p-6 mb-6">
-          {isConnected ? (
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-[10px] font-mono text-zinc-500 tracking-widest uppercase mb-1">
-                  Connected Wallet
+          {hasWallet && !roastOther ? (
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <div className="text-[10px] font-mono text-zinc-500 tracking-widest uppercase mb-1">
+                    {inMiniApp ? "Farcaster Wallet" : "Connected Wallet"}
+                  </div>
+                  <div className="text-white/80 font-mono text-sm">
+                    {connectedAddress?.slice(0, 6)}...{connectedAddress?.slice(-4)}
+                  </div>
                 </div>
-                <div className="text-white/80 font-mono text-sm">
-                  {address?.slice(0, 6)}...{address?.slice(-4)}
-                </div>
+                <button
+                  onClick={handleRoast}
+                  disabled={loading}
+                  className="bg-accent hover:bg-accent/80 disabled:opacity-50 disabled:cursor-not-allowed
+                             text-white font-heading font-bold px-8 py-3 rounded-lg transition-all
+                             shadow-[0_0_20px_rgba(232,41,91,0.3)] hover:shadow-[0_0_30px_rgba(232,41,91,0.5)]"
+                >
+                  {loading ? "Roasting..." : "Roast Me"}
+                </button>
               </div>
               <button
-                onClick={handleRoast}
-                disabled={loading}
-                className="bg-accent hover:bg-accent/80 disabled:opacity-50 disabled:cursor-not-allowed
-                           text-white font-heading font-bold px-8 py-3 rounded-lg transition-all
-                           shadow-[0_0_20px_rgba(232,41,91,0.3)] hover:shadow-[0_0_30px_rgba(232,41,91,0.5)]"
+                onClick={() => setRoastOther(true)}
+                className="text-[11px] font-mono text-zinc-600 hover:text-zinc-400 transition-colors cursor-pointer"
               >
-                {loading ? "Roasting..." : "Roast Me"}
+                Roast someone else →
               </button>
             </div>
           ) : (
             <div className="space-y-4">
+              {roastOther && hasWallet && (
+                <button
+                  onClick={() => { setRoastOther(false); setManualAddress(""); }}
+                  className="text-[11px] font-mono text-zinc-600 hover:text-zinc-400 transition-colors cursor-pointer"
+                >
+                  ← Back to my wallet
+                </button>
+              )}
               <div>
                 <label className="text-[10px] font-mono text-zinc-500 tracking-widest uppercase block mb-2">
                   Paste any wallet address
@@ -122,11 +200,56 @@ export default function RoastPage() {
                 >
                   {loading ? "Roasting..." : "Roast This Wallet"}
                 </button>
-                <div className="text-zinc-600 text-xs">or</div>
-                <WalletConnect />
+                {!hasWallet && !inMiniApp && (
+                  <>
+                    <div className="text-zinc-600 text-xs">or</div>
+                    <WalletConnect />
+                  </>
+                )}
               </div>
             </div>
           )}
+        </div>
+
+        {/* Toxicity Level Selector */}
+        <div className="bg-surface border border-white/[0.06] rounded-xl p-5 mb-6">
+          <div className="text-[10px] font-mono text-zinc-500 tracking-widest uppercase mb-3">
+            Toxicity Level
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {TOXICITY_LEVELS.map((t) => {
+              // L3 is selectable — server validates and silently downgrades if not qualified
+              const isSelected = toxicity === t.level;
+              return (
+                <button
+                  key={t.level}
+                  onClick={() => setToxicity(t.level)}
+                  className={`relative text-left p-3 rounded-lg border transition-all cursor-pointer
+                    ${isSelected
+                      ? `${t.bgActive} ${t.border} ${t.color}`
+                      : `${t.bg} border-white/[0.06] text-zinc-500 hover:border-white/[0.1]`
+                    }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`text-xs font-mono font-bold ${isSelected ? t.color : "text-zinc-600"}`}>
+                      L{t.level}
+                    </span>
+                    <span className={`text-[11px] font-medium ${isSelected ? "text-white/80" : "text-zinc-500"}`}>
+                      {t.name}
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-zinc-600 leading-relaxed">
+                    {t.desc}
+                  </div>
+                  {t.gate && (
+                    <div className="mt-2 flex items-center gap-1.5">
+                      <span className="text-[9px] text-zinc-600 font-mono">{t.gate}</span>
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Error */}
@@ -181,22 +304,21 @@ export default function RoastPage() {
               </div>
             </div>
 
-            {/* Footer */}
-            <div className="border-t border-white/[0.04] px-6 py-4 flex items-center justify-between">
-              <div className="text-[10px] font-mono text-zinc-600">
-                roasted by CLAUDIA AI · claudia.wtf
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => {
-                    const text = `My wallet just got roasted by CLAUDIA AI\n\nDegen Score: ${result.score}/10\n"${result.verdict}"\n\nGet roasted: roast.claudia.wtf`;
-                    navigator.clipboard.writeText(text);
-                  }}
-                  className="text-[10px] font-mono text-zinc-500 hover:text-accent px-3 py-1.5
-                             border border-white/[0.06] rounded transition-colors cursor-pointer"
-                >
-                  Copy
-                </button>
+            {/* Share + Actions */}
+            <div className="border-t border-white/[0.04] px-6 py-4 space-y-3">
+              <ShareButtons
+                roastText={result.roast}
+                walletShort={result.walletShort}
+                roastId={result.roastId}
+                qualityScore={result.qualityScore}
+                totalValue={result.totalValue}
+                pnlTotal={result.pnlTotal}
+                txCount={result.txCount}
+              />
+              <div className="flex items-center justify-between">
+                <div className="text-[10px] font-mono text-zinc-600">
+                  roasted by CLAUDIA AI · claudia.wtf
+                </div>
                 <button
                   onClick={handleRoast}
                   className="text-[10px] font-mono text-zinc-500 hover:text-accent px-3 py-1.5
@@ -215,21 +337,36 @@ export default function RoastPage() {
             <p className="text-zinc-400 text-sm mb-3">
               Want the full analysis instead of just the roast?
             </p>
-            <a
-              href="https://claudia.wtf"
-              className="inline-block bg-accent/20 hover:bg-accent/30 text-accent font-mono text-sm
-                         px-6 py-2.5 rounded-lg border border-accent/30 transition-colors"
-            >
-              Get $CLAUDIA · Unlock CLAUDIA AI
-            </a>
+            <div className="flex justify-center gap-3">
+              <a
+                href="https://aerodrome.finance/swap?from=0x4200000000000000000000000000000000000006&to=0x98eBd4Ac5d4f7022140c51e03CAc39d9F94CDE9B"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-accent/20 hover:bg-accent/30 text-accent font-mono text-sm
+                           px-5 py-2.5 rounded-lg border border-accent/30 transition-colors"
+              >
+                Buy $CLAUDIA
+              </a>
+              <a
+                href="https://app.claudia.wtf"
+                className="bg-white/[0.03] hover:bg-white/[0.06] text-zinc-400 hover:text-white font-mono text-sm
+                           px-5 py-2.5 rounded-lg border border-white/[0.08] transition-colors"
+              >
+                Launch App →
+              </a>
+            </div>
           </div>
         )}
 
-        {/* Footer branding */}
-        <div className="text-center mt-12">
-          <a href="https://claudia.wtf" className="text-zinc-600 hover:text-zinc-400 text-xs font-mono transition-colors">
-            claudia.wtf
-          </a>
+        {/* Footer */}
+        <div className="text-center mt-12 space-y-2">
+          <div className="flex justify-center gap-6 text-[11px] font-mono">
+            <a href="https://app.claudia.wtf" className="text-zinc-600 hover:text-zinc-400 transition-colors">App</a>
+            <a href="https://x.com/0xCLAUDIA_wtf" target="_blank" rel="noopener noreferrer" className="text-zinc-600 hover:text-zinc-400 transition-colors">X</a>
+            <a href="https://t.me/askclaudia" target="_blank" rel="noopener noreferrer" className="text-zinc-600 hover:text-zinc-400 transition-colors">Telegram</a>
+            <a href="https://claudia.wtf" className="text-zinc-600 hover:text-zinc-400 transition-colors">claudia.wtf</a>
+          </div>
+          <p className="text-zinc-700 text-[9px] font-mono">not financial advice. obviously.</p>
         </div>
       </div>
     </div>

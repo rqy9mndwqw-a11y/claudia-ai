@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "CLAUDIA",
+  "iconUrl": "https://roast.claudia.wtf/roast-icon.png",
+  "homeUrl": "https://roast.claudia.wtf",
+  "splashImageUrl": "https://roast.claudia.wtf/roast-splash.png",
+  "splashBackgroundColor": "#000000",
+  "webhookUrl": "https://roast.claudia.wtf/api/farcaster/webhook"
+}

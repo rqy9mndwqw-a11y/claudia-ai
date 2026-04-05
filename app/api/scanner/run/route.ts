@@ -50,23 +50,13 @@ export async function POST(req: NextRequest) {
         "DELETE FROM market_scans WHERE id NOT IN (SELECT id FROM market_scans ORDER BY scanned_at DESC LIMIT 24)"
       ).run();
 
-      // Post to X and save alerts for performance tracking
-      const xCreds = {
-        apiKey: process.env.X_API_KEY || "",
-        apiSecret: process.env.X_API_SECRET || "",
-        accessToken: process.env.X_ACCESS_TOKEN || "",
-        accessTokenSecret: process.env.X_ACCESS_TOKEN_SECRET || "",
-      };
-      postScanToX(summary, topPicks, marketMood, results.length, xCreds)
-        .then(async (xResult) => {
-          // Save alerts for score >= 7 picks with tweet ID for threading
-          try {
-            await saveAlerts(db, scanId, xResult.tweetId || null, topPicks);
-          } catch (e) {
-            console.error("Save alerts failed:", (e as Error).message);
-          }
-        })
-        .catch((err) => console.error("X post silently failed:", err));
+      // X posting disabled — account suspended
+      // Still save alerts for performance tracking (without tweet threading)
+      try {
+        await saveAlerts(db, scanId, null, topPicks);
+      } catch (e) {
+        console.error("Save alerts failed:", (e as Error).message);
+      }
 
       // Daily holders snapshot — fire and forget
       getClaudiaHoldersCount()

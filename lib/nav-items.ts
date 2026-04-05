@@ -66,8 +66,10 @@ export const GROUP_STYLES: Record<GroupColor, {
 
 // Standalone items (rendered outside groups)
 export const NAV_STANDALONE: NavItem[] = [
+  { href: "/dashboard", label: "Dashboard", icon: "home" },
   { href: "/feed", label: "Feed", icon: "radio" },
   { href: "/leaderboard", label: "Leaderboard", icon: "trophy" },
+  { href: "/arena", label: "Arena", icon: "swords", badge: "SOON" },
 ];
 
 // Standalone (Leaderboard) uses amber for prestige/gold feel

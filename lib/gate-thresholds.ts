@@ -11,11 +11,7 @@
 
 // ── Feature gate thresholds (in $CLAUDIA tokens) ──
 
-// Boost promo: gates open until Sunday April 6 noon ET (4pm UTC)
-const PROMO_END = new Date("2026-04-06T16:00:00Z").getTime();
-const isPromoActive = () => Date.now() < PROMO_END;
-
-const NORMAL_THRESHOLDS = {
+export const GATE_THRESHOLDS = {
   dashboard: 1_000_000,
   trading: 5_000_000,
   marketplace_browse: 5_000_000,
@@ -23,24 +19,6 @@ const NORMAL_THRESHOLDS = {
   marketplace_create: 25_000_000,
   marketplace_whale: 100_000_000,
 } as const;
-
-const PROMO_THRESHOLDS = {
-  dashboard: 0,
-  trading: 0,
-  marketplace_browse: 0,
-  marketplace_use: 0,
-  marketplace_create: 0,
-  marketplace_whale: 0,
-} as const;
-
-export const GATE_THRESHOLDS = new Proxy(NORMAL_THRESHOLDS, {
-  get(target, prop: string) {
-    if (isPromoActive() && prop in PROMO_THRESHOLDS) {
-      return PROMO_THRESHOLDS[prop as keyof typeof PROMO_THRESHOLDS];
-    }
-    return target[prop as keyof typeof NORMAL_THRESHOLDS];
-  },
-}) as typeof NORMAL_THRESHOLDS;
 
 // ── Tier thresholds for marketplace (derived from GATE_THRESHOLDS) ──
 // Used by requireTier() and credits page tier display

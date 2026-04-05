@@ -90,20 +90,12 @@ export async function checkAlertPerformance(
       const changePct = ((currentPrice - alert.price_at_alert) / alert.price_at_alert) * 100;
 
       // Post follow-up tweet as reply to original
-      let followupTweetId: string | null = null;
-      if (alert.tweet_id && credentials.apiKey) {
-        const tweetText = buildPerformanceTweet(
-          alert.symbol, alert.score, alert.price_at_alert, currentPrice, changePct, 24
-        );
-        const result = await postReplyToX(tweetText, alert.tweet_id, credentials);
-        followupTweetId = result.tweetId || null;
-      }
-
+      // X reply posting disabled — account suspended
       await db.prepare(
         `UPDATE scanner_alerts
-         SET price_24h = ?, change_24h = ?, checked_24h = 1, followup_tweet_24h = ?
+         SET price_24h = ?, change_24h = ?, checked_24h = 1
          WHERE id = ?`
-      ).bind(currentPrice, changePct, followupTweetId, alert.id).run();
+      ).bind(currentPrice, changePct, alert.id).run();
 
       stats.checked24h++;
     } catch (err) {
@@ -126,20 +118,12 @@ export async function checkAlertPerformance(
 
       const changePct = ((currentPrice - alert.price_at_alert) / alert.price_at_alert) * 100;
 
-      let followupTweetId: string | null = null;
-      if (alert.tweet_id && credentials.apiKey) {
-        const tweetText = buildPerformanceTweet(
-          alert.symbol, alert.score, alert.price_at_alert, currentPrice, changePct, 48
-        );
-        const result = await postReplyToX(tweetText, alert.tweet_id, credentials);
-        followupTweetId = result.tweetId || null;
-      }
-
+      // X reply posting disabled — account suspended
       await db.prepare(
         `UPDATE scanner_alerts
-         SET price_48h = ?, change_48h = ?, checked_48h = 1, followup_tweet_48h = ?
+         SET price_48h = ?, change_48h = ?, checked_48h = 1
          WHERE id = ?`
-      ).bind(currentPrice, changePct, followupTweetId, alert.id).run();
+      ).bind(currentPrice, changePct, alert.id).run();
 
       stats.checked48h++;
     } catch (err) {
