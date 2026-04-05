@@ -9,8 +9,8 @@
     "deploy": "opennextjs-cloudflare build && cp .open-next/worker.js .open-next/assets/_worker.js"
   },
   "dependencies": {
-    "@cloudflare/next-on-pages": "^1.13.16",
     "@opennextjs/cloudflare": "latest",
+    "@privy-io/react-auth": "^2.5.0",
     "@rainbow-me/rainbowkit": "^2.1.3",
     "@tanstack/react-query": "^5.51.0",
     "next": "15.5.14",

@@ -16,7 +16,16 @@ export const wagmiConfig = getDefaultConfig({
   wallets: [
     {
       groupName: "Popular",
-      wallets: [metaMaskWallet, coinbaseWallet, phantomWallet, walletConnectWallet],
+      wallets: [
+        // injected() handled by metaMaskWallet for desktop extensions
+        metaMaskWallet,
+        // Coinbase: deep links on mobile, extension on desktop
+        coinbaseWallet,
+        // Phantom mobile uses WalletConnect v2 — no separate connector needed
+        phantomWallet,
+        // WalletConnect: catches all other mobile wallets
+        walletConnectWallet,
+      ],
     },
   ],
   transports: {

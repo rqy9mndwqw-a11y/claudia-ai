@@ -1,8 +1,11 @@
 "use client";
 
 import { ConnectButton } from "@rainbow-me/rainbowkit";
+import dynamic from "next/dynamic";
 
-export default function WalletConnect() {
+const PrivyLoginButton = dynamic(() => import("./PrivyLoginButton"), { ssr: false });
+
+export default function WalletConnect({ showEmail = false }: { showEmail?: boolean }) {
   return (
     <ConnectButton.Custom>
       {({
@@ -25,13 +28,18 @@ export default function WalletConnect() {
             {(() => {
               if (!connected) {
                 return (
-                  <button
-                    onClick={openConnectModal}
-                    className="bg-accent hover:bg-accent/80 text-white font-heading font-bold
-                               px-6 py-3 rounded-xl transition-all duration-200 glow"
-                  >
-                    Connect Wallet
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={openConnectModal}
+                      className="bg-accent hover:bg-accent/80 text-white font-heading font-bold
+                                 px-6 py-3 rounded-xl transition-all duration-200 glow"
+                    >
+                      Connect Wallet
+                    </button>
+                    {showEmail && process.env.NEXT_PUBLIC_PRIVY_APP_ID && (
+                      <PrivyLoginButton />
+                    )}
+                  </div>
                 );
               }
 

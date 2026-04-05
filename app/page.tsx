@@ -165,7 +165,7 @@ export default function Home() {
 
         {/* CTA with glow */}
         <div className="animate-pulse-glow rounded-xl">
-          <WalletConnect />
+          <WalletConnect showEmail />
         </div>
 
         {/* Feature cards */}
