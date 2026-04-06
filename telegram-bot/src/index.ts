@@ -17,11 +17,13 @@ import { giveawayCommand, handleGiveawayEntry } from "./commands/giveaway.js";
 import { helpCommand } from "./commands/help.js";
 import { buyCommand } from "./commands/buy.js";
 import { linksCommand } from "./commands/links.js";
+import { airdropLinkCommand } from "./commands/airdroplink.js";
 
 // Handlers
 import { handleNewMember } from "./handlers/new-member.js";
 import { trackMessage } from "./handlers/message-tracker.js";
 import { handleReactionCount } from "./handlers/reaction-tracker.js";
+import { handleInviteAttribution } from "./handlers/invite-attribution.js";
 
 // Middleware
 import { loadUser } from "./middleware/auth.js";
@@ -61,6 +63,7 @@ function createBot(token: string, env: Env): Bot {
   bot.command("help", helpCommand);
   bot.command("buy", buyCommand);
   bot.command("links", linksCommand);
+  bot.command("airdroplink", airdropLinkCommand);
 
   // Admin debug — get chat ID for env config
   bot.command("chatid", async (ctx) => {
@@ -71,8 +74,11 @@ function createBot(token: string, env: Env): Bot {
   bot.callbackQuery("verify", handleVerifyCallback);
   bot.callbackQuery(/^giveaway_/, handleGiveawayEntry);
 
-  // New member handler
+  // New member handler (restricts + captcha)
   bot.on("message:new_chat_members", handleNewMember);
+
+  // Invite link attribution — logs wallet referral ONLY, no permissions
+  bot.on("chat_member", handleInviteAttribution);
 
   // Track 🔥 reactions on ROTD candidate messages
   bot.on("message_reaction_count", handleReactionCount);

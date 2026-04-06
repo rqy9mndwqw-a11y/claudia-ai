@@ -245,7 +245,7 @@ function PairDrawer({
           <button
             onClick={handleFullAnalysis}
             disabled={isAnalyzing}
-            className="w-full bg-gradient-to-r from-accent to-purple-600 hover:from-accent/90 hover:to-purple-500 disabled:opacity-50 text-white font-heading font-bold py-4 rounded-2xl transition-all flex items-center justify-center gap-2 mb-3 shadow-lg shadow-accent/20 animate-glow-pink"
+            className="w-full bg-gradient-to-r from-accent to-purple-600 hover:from-accent/90 hover:to-purple-500 disabled:opacity-50 text-white font-heading font-bold py-4 rounded-2xl transition-all flex items-center justify-center gap-2 mb-3 shadow-lg shadow-accent/20 animate-glow-green"
           >
             {isAnalyzing ? (
               <><span className="animate-spin">&#9889;</span> Running analysis...</>
@@ -471,7 +471,7 @@ function ScannerContent({ sessionToken }: { sessionToken: string | null }) {
                   className="p-1.5 rounded-lg hover:bg-accent/20 transition-all group/swarm"
                   title={`Full analysis ${r.symbol}`}
                 >
-                  <div className="group-hover/swarm:animate-glow-pink rounded-full">
+                  <div className="group-hover/swarm:animate-glow-green rounded-full">
                     <SwarmIcon />
                   </div>
                 </button>

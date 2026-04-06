@@ -120,7 +120,7 @@ export default function CreatorGuidePage() {
           <div className="text-center py-8 border-t border-white/5">
             <a
               href="/agents/create"
-              className="inline-block bg-accent hover:bg-accent/80 text-white font-heading font-bold
+              className="inline-block bg-accent hover:bg-[#27c00e] text-white font-heading font-bold
                          px-8 py-3 rounded-xl transition-all text-sm uppercase tracking-wider"
             >
               Create Your Agent

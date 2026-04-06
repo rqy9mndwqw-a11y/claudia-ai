@@ -172,7 +172,7 @@ export default function Sidebar({ expanded, onToggle }: SidebarProps) {
             <div className="flex flex-col h-full">
               <div className="flex items-center justify-between px-4 py-3.5 border-b border-white/5">
                 <div className="flex items-center gap-2.5">
-                  <img src="/claudia-logo.svg" alt="CLAUDIA" className="h-6 w-auto" />
+                  <img src="/logo.png" alt="CLAUDIA" className="h-6 w-auto" />
                     </div>
                 <button
                   onClick={() => setMobileOpen(false)}
@@ -203,7 +203,7 @@ export default function Sidebar({ expanded, onToggle }: SidebarProps) {
           {/* Logo */}
           <div className={`flex items-center border-b border-white/5 ${expanded ? "px-4 py-3.5 gap-2.5" : "justify-center py-3.5"}`}>
             <img
-              src="/claudia-logo.svg"
+              src="/logo.png"
               alt="CLAUDIA"
               className={`transition-all duration-200 ${expanded ? "h-6 w-auto" : "h-5 w-auto"}`}
             />

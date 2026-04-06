@@ -65,7 +65,7 @@ function ComingSoon({ sessionToken }: { sessionToken: string | null }) {
     <div className="flex-1 flex items-center justify-center px-4">
       <div className="max-w-lg w-full text-center space-y-6">
         <ClaudiaCharacter
-          imageSrc="/claudia-avatar.png"
+          imageSrc="/avatar.png"
           mood="skeptical"
           message="I'm reviewing applications personally. Standards are high."
           className="mx-auto"
@@ -102,7 +102,7 @@ function ComingSoon({ sessionToken }: { sessionToken: string | null }) {
                 onClick={handleApply}
                 disabled={submitting || !contact.trim()}
                 className="w-full py-2.5 rounded-xl font-heading font-bold text-xs uppercase tracking-wider
-                           bg-accent hover:bg-accent/80 text-white transition-all
+                           bg-accent hover:bg-[#27c00e] text-white transition-all
                            disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 {submitting ? "Submitting..." : "Notify Me"}
@@ -340,7 +340,7 @@ function CreateForm({ sessionToken }: { sessionToken: string | null }) {
               className={`w-full py-3 rounded-xl font-heading font-bold text-sm uppercase tracking-wider transition-all ${
                 isSubmitting
                   ? "bg-accent/20 text-accent animate-pulse cursor-wait"
-                  : "bg-accent hover:bg-accent/80 text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                  : "bg-accent hover:bg-[#27c00e] text-white disabled:opacity-30 disabled:cursor-not-allowed"
               }`}
             >
               {isSubmitting ? "Creating..." : "Create Agent"}

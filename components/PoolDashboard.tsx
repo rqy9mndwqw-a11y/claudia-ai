@@ -136,7 +136,7 @@ export default function PoolDashboard({ poolsState, sessionToken }: PoolDashboar
           <p className="text-zinc-400 mb-4 italic">&ldquo;{error}&rdquo;</p>
           <button
             onClick={refresh}
-            className="bg-accent hover:bg-accent/80 text-white font-heading font-bold px-6 py-3 rounded-xl transition-all"
+            className="bg-accent hover:bg-[#27c00e] text-white font-heading font-bold px-6 py-3 rounded-xl transition-all"
           >
             Try Again
           </button>
@@ -150,7 +150,7 @@ export default function PoolDashboard({ poolsState, sessionToken }: PoolDashboar
       {/* CLAUDIA sidebar — left, matching chat page layout */}
       <div className="hidden lg:flex flex-col items-center w-52 border-r border-white/5 bg-surface/30 pt-6 flex-shrink-0">
         <ClaudiaCharacter
-          imageSrc="/claudia-avatar.png"
+          imageSrc="/avatar.png"
           mood={claudiaMood}
           message={claudiaMessage}
         />

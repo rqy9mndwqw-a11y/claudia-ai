@@ -678,7 +678,7 @@ function CreditsContent({ sessionToken, walletAddress }: { sessionToken: string 
                     ? "bg-surface-light hover:bg-white/10 text-white"
                     : step === "error"
                     ? "bg-surface-light hover:bg-white/10 text-white"
-                    : "bg-accent hover:bg-accent/80 text-white disabled:opacity-30"
+                    : "bg-accent hover:bg-[#27c00e] text-white disabled:opacity-30"
                 }`}
               >
                 {stepLabels[step]}
@@ -727,7 +727,7 @@ function CreditsContent({ sessionToken, walletAddress }: { sessionToken: string 
               ? "bg-surface-light hover:bg-white/10 text-white"
               : step === "error"
               ? "bg-surface-light hover:bg-white/10 text-white"
-              : "bg-accent hover:bg-accent/80 text-white disabled:opacity-30"
+              : "bg-accent hover:bg-[#27c00e] text-white disabled:opacity-30"
           }`}
         >
           {stepLabels[step]}

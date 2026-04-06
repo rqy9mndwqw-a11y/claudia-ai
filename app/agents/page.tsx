@@ -162,7 +162,7 @@ function CommandCenter({ sessionToken, credits, creditsLoading }: { sessionToken
     <div className={`mx-4 mt-4 rounded-2xl border p-5 transition-all ${
       lowFuel
         ? "bg-surface border-amber-500/30 shadow-[0_0_20px_rgba(245,158,11,0.1)] animate-pulse"
-        : "bg-surface border-accent/20 shadow-[0_0_20px_rgba(236,72,153,0.12)]"
+        : "bg-surface border-accent/20 shadow-[0_0_20px_rgba(57,255,20,0.12)]"
     }`}>
       <div className="flex items-center gap-2 mb-3">
         <span className="text-[10px] font-bold uppercase tracking-widest text-accent font-mono">Command Center</span>
@@ -363,7 +363,7 @@ function MarketplaceContent({ sessionToken }: { sessionToken: string | null }) {
               <p className="text-zinc-400 mb-4">{error}</p>
               <button
                 onClick={refresh}
-                className="bg-accent hover:bg-accent/80 text-white font-heading font-bold px-6 py-3 rounded-xl transition-all"
+                className="bg-accent hover:bg-[#27c00e] text-white font-heading font-bold px-6 py-3 rounded-xl transition-all"
               >
                 Try Again
               </button>
@@ -430,7 +430,7 @@ export default function AgentsPage() {
               <p className="text-zinc-400 text-sm mb-2">{authError || "Authentication failed"}</p>
               <button
                 onClick={retry}
-                className="bg-accent hover:bg-accent/80 text-white font-heading font-bold px-6 py-3 rounded-xl transition-all"
+                className="bg-accent hover:bg-[#27c00e] text-white font-heading font-bold px-6 py-3 rounded-xl transition-all"
               >
                 Retry
               </button>

@@ -27,7 +27,7 @@ export default function OGImage() {
             inset: 0,
             opacity: 0.04,
             backgroundImage:
-              "linear-gradient(rgba(232,41,91,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(232,41,91,0.5) 1px, transparent 1px)",
+              "linear-gradient(rgba(57,255,20,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(57,255,20,0.5) 1px, transparent 1px)",
             backgroundSize: "80px 80px",
           }}
         />
@@ -38,7 +38,7 @@ export default function OGImage() {
             position: "absolute",
             inset: 0,
             background:
-              "radial-gradient(ellipse at 50% 50%, rgba(232,41,91,0.15) 0%, transparent 60%)",
+              "radial-gradient(ellipse at 50% 50%, rgba(57,255,20,0.15) 0%, transparent 60%)",
           }}
         />
 
@@ -57,7 +57,7 @@ export default function OGImage() {
             style={{
               fontSize: 24,
               letterSpacing: 8,
-              color: "#E8295B",
+              color: "#39ff14",
               fontFamily: "monospace",
               opacity: 0.6,
             }}
@@ -95,7 +95,7 @@ export default function OGImage() {
           <div
             style={{
               fontSize: 16,
-              color: "#E8295B",
+              color: "#39ff14",
               fontFamily: "monospace",
               letterSpacing: 4,
               marginTop: 24,

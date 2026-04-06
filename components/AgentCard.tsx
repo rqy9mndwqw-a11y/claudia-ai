@@ -22,7 +22,7 @@ const CATEGORY_GLOW: Record<string, string> = {
   defi: "hover:shadow-[0_0_20px_rgba(34,197,94,0.15)] hover:border-green-500/20",
   trading: "hover:shadow-[0_0_20px_rgba(234,179,8,0.15)] hover:border-yellow-500/20",
   research: "hover:shadow-[0_0_20px_rgba(59,130,246,0.15)] hover:border-blue-500/20",
-  degen: "hover:shadow-[0_0_20px_rgba(236,72,153,0.15)] hover:border-pink-500/20",
+  degen: "hover:shadow-[0_0_20px_rgba(57,255,20,0.15)] hover:border-pink-500/20",
   general: "hover:shadow-[0_0_20px_rgba(148,163,184,0.1)] hover:border-zinc-500/20",
 };
 
@@ -68,7 +68,7 @@ export default function AgentCard({ agent }: AgentCardProps) {
             {isClaudiaOfficial(agent.creator_address) && (
               <div className="relative group/badge inline-flex">
                 <img
-                  src="/claudia-avatar.png"
+                  src="/avatar.png"
                   alt=""
                   className="w-4 h-4 rounded-full ring-1 ring-white/10 opacity-60 group-hover:opacity-100 transition-opacity"
                 />
@@ -151,7 +151,7 @@ export function AgentRow({ agent }: AgentCardProps) {
           {agent.name}
         </span>
         {isClaudiaOfficial(agent.creator_address) && (
-          <img src="/claudia-avatar.png" alt="" className="w-4 h-4 rounded-full border border-white/10 opacity-50 group-hover:opacity-100 group-hover:grayscale-0 grayscale transition-all" />
+          <img src="/avatar.png" alt="" className="w-4 h-4 rounded-full border border-white/10 opacity-50 group-hover:opacity-100 group-hover:grayscale-0 grayscale transition-all" />
         )}
         <span className="text-[10px] text-zinc-700 uppercase tracking-wider hidden sm:inline ml-1">{agent.category}</span>
       </div>

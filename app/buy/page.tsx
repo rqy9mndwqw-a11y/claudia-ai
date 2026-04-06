@@ -307,7 +307,7 @@ export default function BuyPage() {
               <button
                 onClick={handleSwap}
                 disabled={isSending || isConfirming || !estimatedClaudia || parseFloat(ethAmount) <= 0}
-                className="w-full bg-gradient-to-r from-accent to-purple-600 hover:from-accent/90 hover:to-purple-500 disabled:opacity-30 disabled:cursor-not-allowed text-white font-heading font-bold py-4 rounded-xl transition-all animate-glow-pink"
+                className="w-full bg-gradient-to-r from-accent to-purple-600 hover:from-accent/90 hover:to-purple-500 disabled:opacity-30 disabled:cursor-not-allowed text-white font-heading font-bold py-4 rounded-xl transition-all animate-glow-green"
               >
                 {isSending ? (
                   "Confirm in wallet..."

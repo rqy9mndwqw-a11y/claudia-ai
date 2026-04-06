@@ -192,7 +192,7 @@ export default function ComparisonPanel({ pools, sessionToken, onClose }: Compar
           className={`w-full py-3 rounded-xl font-heading font-bold text-sm uppercase tracking-wider transition-all ${
             isLoading
               ? "bg-accent/20 text-accent animate-pulse cursor-wait"
-              : "bg-accent hover:bg-accent/80 text-white"
+              : "bg-accent hover:bg-[#27c00e] text-white"
           }`}
         >
           {isLoading ? "Claudia is thinking..." : "Compare"}

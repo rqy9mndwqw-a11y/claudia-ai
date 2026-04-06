@@ -19,7 +19,7 @@ export default function DocsComingSoon() {
   return (
     <div className="min-h-screen bg-bg text-zinc-200 flex flex-col items-center justify-center px-4">
       {/* Subtle background */}
-      <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_50%_30%,rgba(232,41,91,0.04)_0%,transparent_60%)] pointer-events-none" />
+      <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_50%_30%,rgba(57,255,20,0.04)_0%,transparent_60%)] pointer-events-none" />
 
       <div className="relative z-10 max-w-md text-center">
         <div className="text-[10px] font-mono text-accent/60 tracking-[6px] uppercase mb-6">
@@ -63,7 +63,7 @@ export default function DocsComingSoon() {
                 onClick={() => {
                   if (email.includes("@")) setSubmitted(true);
                 }}
-                className="bg-accent hover:bg-accent/80 text-white font-heading font-bold
+                className="bg-accent hover:bg-[#27c00e] text-white font-heading font-bold
                            px-5 py-2.5 rounded-lg transition-all text-sm"
               >
                 Notify Me

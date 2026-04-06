@@ -31,7 +31,7 @@ export default function WalletConnect({ showEmail = false }: { showEmail?: boole
                   <div className="flex items-center gap-3">
                     <button
                       onClick={openConnectModal}
-                      className="bg-accent hover:bg-accent/80 text-white font-heading font-bold
+                      className="bg-accent hover:bg-[#27c00e] text-white font-heading font-bold
                                  px-6 py-3 rounded-xl transition-all duration-200 glow"
                     >
                       Connect Wallet

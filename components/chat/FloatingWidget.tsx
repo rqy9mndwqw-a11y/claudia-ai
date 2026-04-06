@@ -152,7 +152,7 @@ export default function FloatingWidget() {
           title="Chat with CLAUDIA"
         >
           <img
-            src="/claudia-avatar.png"
+            src="/avatar.png"
             alt="CLAUDIA"
             className="w-10 h-10 rounded-full"
           />
@@ -166,7 +166,7 @@ export default function FloatingWidget() {
           <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 bg-surface/50">
             <div className="flex items-center gap-2.5">
               <img
-                src="/claudia-avatar.png"
+                src="/avatar.png"
                 alt="CLAUDIA"
                 className="w-7 h-7 rounded-full"
               />
@@ -194,7 +194,7 @@ export default function FloatingWidget() {
             {messages.length === 0 && !isLoading && (
               <div className="flex flex-col items-center justify-center h-full gap-4">
                 <img
-                  src="/claudia-avatar.png"
+                  src="/avatar.png"
                   alt="CLAUDIA"
                   className="w-12 h-12 rounded-full opacity-60"
                 />
@@ -224,7 +224,7 @@ export default function FloatingWidget() {
                   {msg.role === "assistant" && (
                     <div className="flex items-start gap-2">
                       <img
-                        src="/claudia-avatar.png"
+                        src="/avatar.png"
                         alt=""
                         className="w-5 h-5 rounded-full mt-1 flex-shrink-0"
                       />
@@ -256,7 +256,7 @@ export default function FloatingWidget() {
             {isLoading && (
               <div className="flex items-start gap-2">
                 <img
-                  src="/claudia-avatar.png"
+                  src="/avatar.png"
                   alt=""
                   className="w-5 h-5 rounded-full mt-1"
                 />
@@ -303,7 +303,7 @@ export default function FloatingWidget() {
               <button
                 onClick={() => sendMessage()}
                 disabled={!input.trim() || isLoading}
-                className="bg-accent hover:bg-accent/80 disabled:opacity-30 text-white px-3 py-2.5 rounded-xl transition-all flex-shrink-0"
+                className="bg-accent hover:bg-[#27c00e] disabled:opacity-30 text-white px-3 py-2.5 rounded-xl transition-all flex-shrink-0"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="22" y1="2" x2="11" y2="13" />

@@ -129,6 +129,41 @@ export async function createReferral(
   ).run();
 }
 
+/**
+ * Create a referral from a wallet-tied invite link.
+ * The referrer is identified by wallet address (from invite link name),
+ * not by Telegram ID.
+ */
+export async function createReferralFromWallet(
+  db: D1Database,
+  referrerWallet: string,
+  referredTgId: string,
+  referredUsername: string | null
+): Promise<void> {
+  // Check if already referred
+  const existing = await db.prepare(
+    "SELECT id FROM tg_referrals WHERE referred_tg_id = ?"
+  ).bind(referredTgId).first();
+  if (existing) return;
+
+  // Try to find the referrer's TG ID from their wallet
+  const referrer = await db.prepare(
+    "SELECT tg_id FROM telegram_users WHERE wallet_address = ? LIMIT 1"
+  ).bind(referrerWallet).first<{ tg_id: string }>();
+
+  await db.prepare(
+    `INSERT INTO tg_referrals (id, referrer_tg_id, referrer_wallet, referred_tg_id, referred_username, joined_at, is_active, reward_credited)
+     VALUES (?, ?, ?, ?, ?, ?, 0, 0)`
+  ).bind(
+    crypto.randomUUID(),
+    referrer?.tg_id || "wallet_" + referrerWallet.slice(0, 8),
+    referrerWallet,
+    referredTgId,
+    referredUsername,
+    Date.now()
+  ).run();
+}
+
 export async function incrementQueries(db: D1Database, tgId: string): Promise<void> {
   const todayStart = new Date();
   todayStart.setUTCHours(0, 0, 0, 0);

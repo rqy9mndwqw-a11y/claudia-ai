@@ -77,7 +77,7 @@ export default function PortfolioOverview({
           <p className="text-zinc-400 mb-4 italic">&ldquo;{error}&rdquo;</p>
           <button
             onClick={refresh}
-            className="bg-accent hover:bg-accent/80 text-white font-heading font-bold px-6 py-3 rounded-xl transition-all"
+            className="bg-accent hover:bg-[#27c00e] text-white font-heading font-bold px-6 py-3 rounded-xl transition-all"
           >
             Try Again
           </button>

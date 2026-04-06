@@ -75,7 +75,7 @@ export default function NFTPage() {
           href="https://t.me/askclaudia"
           target="_blank"
           rel="noopener noreferrer"
-          className="bg-accent hover:bg-accent/80 text-white font-heading font-bold px-8 py-3 rounded-2xl transition-all mb-3 inline-block"
+          className="bg-accent hover:bg-[#27c00e] text-white font-heading font-bold px-8 py-3 rounded-2xl transition-all mb-3 inline-block"
         >
           Join Telegram &rarr;
         </a>

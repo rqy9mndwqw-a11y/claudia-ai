@@ -28,7 +28,7 @@ export const GROUP_STYLES: Record<GroupColor, {
     activeBg: "bg-accent/10",
     activeIndicator: "bg-accent",
     hoverText: "hover:text-accent",
-    iconGlow: "drop-shadow-[0_0_8px_rgba(232,41,91,0.5)]",
+    iconGlow: "drop-shadow-[0_0_8px_rgba(57,255,20,0.5)]",
   },
   blue: {
     headerText: "text-blue-400/60",

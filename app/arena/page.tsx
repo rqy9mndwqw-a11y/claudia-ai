@@ -140,7 +140,7 @@ export default function ArenaPage() {
             <div className="space-y-3">
               {SKILL_ACQUISITION.map((s, i) => (
                 <div key={i} className="flex gap-3 items-start">
-                  <div className="w-1.5 h-1.5 rounded-full bg-accent mt-1.5 shrink-0 shadow-[0_0_6px_rgba(232,41,91,0.5)]" />
+                  <div className="w-1.5 h-1.5 rounded-full bg-accent mt-1.5 shrink-0 shadow-[0_0_6px_rgba(57,255,20,0.5)]" />
                   <div>
                     <div className="text-white/70 text-xs font-medium">{s.method}</div>
                     <div className="text-zinc-600 text-[10px]">{s.desc}</div>

@@ -276,7 +276,7 @@ export default function TradeInterface() {
                 <button
                   onClick={handleVerifyKey}
                   disabled={!apiKey || !apiSecret || verifying}
-                  className="bg-accent hover:bg-accent/80 disabled:opacity-30
+                  className="bg-accent hover:bg-[#27c00e] disabled:opacity-30
                              text-white font-heading font-bold px-6 py-3 rounded-xl
                              transition-all w-full"
                 >
@@ -353,7 +353,7 @@ export default function TradeInterface() {
               <button
                 onClick={handleScan}
                 disabled={watchlist.length === 0}
-                className="bg-accent hover:bg-accent/80 disabled:opacity-30
+                className="bg-accent hover:bg-[#27c00e] disabled:opacity-30
                            text-white font-heading font-bold px-6 py-3 rounded-xl
                            transition-all w-full"
               >

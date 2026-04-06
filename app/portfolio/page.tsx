@@ -287,7 +287,7 @@ function PortfolioContent() {
           <button
             onClick={addWallet}
             disabled={!newWalletAddress}
-            className="bg-accent hover:bg-accent/80 disabled:opacity-30 text-white text-sm px-4 py-2 rounded-xl transition-all"
+            className="bg-accent hover:bg-[#27c00e] disabled:opacity-30 text-white text-sm px-4 py-2 rounded-xl transition-all"
           >
             Add
           </button>
@@ -366,7 +366,7 @@ function PortfolioContent() {
                 <ClaudiaCharacter
                   mood="talking"
                   size="tiny"
-                  imageSrc="/claudia-avatar.png"
+                  imageSrc="/avatar.png"
                 />
                 <p className="text-zinc-300 text-sm leading-relaxed italic">
                   &ldquo;{claudiaAnalysis}&rdquo;
@@ -603,7 +603,7 @@ function DeFiTab({ defi }: { defi: DeFiPosition[] }) {
         <ClaudiaCharacter
           mood="skeptical"
           size="small"
-          imageSrc="/claudia-avatar.png"
+          imageSrc="/avatar.png"
         />
         <p className="text-zinc-500 text-sm mt-4">no positions found.</p>
         <Link

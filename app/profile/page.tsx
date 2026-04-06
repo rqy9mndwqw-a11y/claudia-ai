@@ -75,7 +75,7 @@ export default function ProfilePage() {
                       : "border-white/5 hover:border-white/20"
                   }`}
                 >
-                  <ClaudiaCharacter imageSrc="/claudia-avatar.png" mood={avatar.mood} size="tiny" />
+                  <ClaudiaCharacter imageSrc="/avatar.png" mood={avatar.mood} size="tiny" />
                   <span className="text-xs text-zinc-400">{avatar.label}</span>
                 </button>
               ))}
@@ -152,7 +152,7 @@ export default function ProfilePage() {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="w-full bg-accent hover:bg-accent/80 disabled:opacity-50 text-white font-heading font-bold py-4 rounded-2xl transition-all"
+            className="w-full bg-accent hover:bg-[#27c00e] disabled:opacity-50 text-white font-heading font-bold py-4 rounded-2xl transition-all"
           >
             {saving ? "Saving..." : saved ? "Saved!" : "Save Profile"}
           </button>

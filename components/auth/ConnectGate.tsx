@@ -41,7 +41,7 @@ export default function ConnectGate({ children }: { children: ReactNode }) {
           <p className="text-zinc-500 text-sm mb-4">{authError || "Failed to verify your wallet. Try again."}</p>
           <button
             onClick={retry}
-            className="bg-accent hover:bg-accent/80 text-white font-heading font-bold px-6 py-2.5 rounded-lg transition-all text-sm"
+            className="bg-accent hover:bg-[#27c00e] text-white font-heading font-bold px-6 py-2.5 rounded-lg transition-all text-sm"
           >
             Retry
           </button>

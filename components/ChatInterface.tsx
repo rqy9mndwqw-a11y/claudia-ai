@@ -241,7 +241,7 @@ export default function ChatInterface() {
       <div className="flex items-center justify-between px-4 py-2 border-b border-white/5">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center overflow-hidden">
-            <img src="/claudia-avatar.png" alt="Claudia" className="w-8 h-8 object-cover object-top" />
+            <img src="/avatar.png" alt="Claudia" className="w-8 h-8 object-cover object-top" />
           </div>
           <div>
             <h2 className="font-heading font-bold text-white text-sm">Claudia</h2>
@@ -265,7 +265,7 @@ export default function ChatInterface() {
         {/* Claudia character — left panel on desktop */}
         <div className="hidden md:flex flex-col items-center justify-start w-48 border-r border-white/5 bg-surface/30 pt-6">
           <ClaudiaCharacter
-            imageSrc="/claudia-avatar.png"
+            imageSrc="/avatar.png"
             mood={claudiaMood}
           />
         </div>
@@ -278,7 +278,7 @@ export default function ChatInterface() {
               <div className="flex flex-col items-center justify-center h-full text-center">
                 {/* Claudia avatar for mobile (no sidebar) */}
                 <div className="md:hidden w-20 h-20 rounded-full overflow-hidden border-2 border-accent/30 mb-4">
-                  <img src="/claudia-avatar.png" alt="Claudia" className="w-full h-full object-cover object-top" />
+                  <img src="/avatar.png" alt="Claudia" className="w-full h-full object-cover object-top" />
                 </div>
                 <p className="text-zinc-400 text-base mb-1 font-heading italic">
                   &ldquo;{emptyGreeting}&rdquo;
@@ -321,7 +321,7 @@ export default function ChatInterface() {
               >
                 {msg.role === "assistant" && (
                   <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-accent/20 mr-3 mt-1 flex-shrink-0 shadow-lg shadow-accent/5">
-                    <img src="/claudia-avatar.png" alt="" className="w-full h-full object-cover object-top scale-110" />
+                    <img src="/avatar.png" alt="" className="w-full h-full object-cover object-top scale-110" />
                   </div>
                 )}
                 <div
@@ -354,7 +354,7 @@ export default function ChatInterface() {
             {loading && (
               <div className="animate-fade-in flex justify-start">
                 <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-coral/20 mr-3 mt-1 flex-shrink-0 animate-bounce">
-                  <img src="/claudia-avatar.png" alt="" className="w-full h-full object-cover object-top grayscale opacity-70" />
+                  <img src="/avatar.png" alt="" className="w-full h-full object-cover object-top grayscale opacity-70" />
                 </div>
                 <div className="bg-surface-light/20 rounded-2xl rounded-tl-none px-5 py-3 border border-white/5 backdrop-blur-sm">
                   <div className="flex items-center gap-2">
@@ -389,7 +389,7 @@ export default function ChatInterface() {
               <button
                 onClick={() => sendMessage(input)}
                 disabled={!input.trim() || loading}
-                className="bg-accent hover:bg-accent/80 disabled:opacity-30 disabled:hover:bg-accent
+                className="bg-accent hover:bg-[#27c00e] disabled:opacity-30 disabled:hover:bg-accent
                            text-white px-5 py-2 m-1.5 rounded-lg transition-all text-sm font-heading font-bold"
               >
                 Send

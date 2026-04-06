@@ -124,7 +124,7 @@ export default function TokenGate({
           </p>
           <button
             onClick={() => refetch()}
-            className="bg-accent hover:bg-accent/80 text-white font-heading font-bold
+            className="bg-accent hover:bg-[#27c00e] text-white font-heading font-bold
                        px-6 py-3 rounded-xl transition-all duration-200"
           >
             Try Again
@@ -175,7 +175,7 @@ export default function TokenGate({
             href={`https://aerodrome.finance/swap?from=0x4200000000000000000000000000000000000006&to=${CLAUDIA_CONTRACT}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-block bg-accent hover:bg-accent/80 text-white font-heading font-bold
+            className="inline-block bg-accent hover:bg-[#27c00e] text-white font-heading font-bold
                        px-6 py-3 rounded-xl transition-all duration-200"
           >
             Buy $CLAUDIA on Aerodrome

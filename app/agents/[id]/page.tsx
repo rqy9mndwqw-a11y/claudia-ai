@@ -374,7 +374,7 @@ function AgentChat({ agentId, sessionToken }: { agentId: string; sessionToken: s
           <button
             onClick={() => sendMessage()}
             disabled={!input.trim() || isSending}
-            className="bg-accent hover:bg-accent/80 text-white px-5 py-2.5 rounded-lg
+            className="bg-accent hover:bg-[#27c00e] text-white px-5 py-2.5 rounded-lg
                        font-heading font-bold text-xs uppercase tracking-wider
                        disabled:opacity-30 disabled:cursor-not-allowed transition-all"
           >

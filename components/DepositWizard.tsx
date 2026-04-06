@@ -279,7 +279,7 @@ export default function DepositWizard({ pool, sessionToken, onClose }: DepositWi
                 onClick={handleDeposit}
                 disabled={!amount || parseFloat(amount) <= 0 || !tokenInfo}
                 className="w-full py-3 rounded-xl font-heading font-bold text-sm uppercase tracking-wider
-                           bg-accent hover:bg-accent/80 text-white transition-all
+                           bg-accent hover:bg-[#27c00e] text-white transition-all
                            disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 Deposit

@@ -61,7 +61,7 @@ export default function LeaderboardPage() {
           <div className="flex items-start justify-between mb-8">
             <div className="flex items-start gap-3">
               <ClaudiaCharacter
-                imageSrc="/claudia-avatar.png"
+                imageSrc="/avatar.png"
                 mood="excited"
                 size="small"
               />
@@ -294,7 +294,7 @@ export default function LeaderboardPage() {
             ) : leaderboard?.top10?.length === 0 ? (
               <div className="py-16 text-center">
                 <ClaudiaCharacter
-                  imageSrc="/claudia-avatar.png"
+                  imageSrc="/avatar.png"
                   mood="skeptical"
                   size="small"
                 />
@@ -333,7 +333,7 @@ export default function LeaderboardPage() {
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="flex-shrink-0">
                         <ClaudiaCharacter
-                          imageSrc="/claudia-avatar.png"
+                          imageSrc="/avatar.png"
                           mood={
                             (entry.avatarPreset as any) || "idle"
                           }

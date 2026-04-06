@@ -4,8 +4,8 @@ import { base } from "viem/chains";
 export const privyConfig: PrivyClientConfig = {
   appearance: {
     theme: "dark",
-    accentColor: "#E8295B",
-    logo: "https://claudia.wtf/favicon.svg",
+    accentColor: "#39ff14",
+    logo: "https://claudia.wtf/favicon.png",
   },
   loginMethods: ["email", "wallet"],
   embeddedWallets: {

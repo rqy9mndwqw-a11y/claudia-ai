@@ -386,13 +386,13 @@ function AnalysisContent({ analysisId, sessionToken }: { analysisId: string; ses
 
           <div className="bg-surface rounded-xl border border-accent/20 p-5 relative overflow-hidden">
             <div className="absolute top-2 right-4 opacity-[0.04]">
-              <img src="/claudia-avatar.png" alt="" className="w-20 h-20" />
+              <img src="/avatar.png" alt="" className="w-20 h-20" />
             </div>
 
             {/* Verdict row — horizontal on desktop */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 relative z-10">
               <div className="flex-shrink-0">
-                <img src="/claudia-avatar.png" alt="CLAUDIA" className="w-10 h-10 rounded-full border border-accent/30" />
+                <img src="/avatar.png" alt="CLAUDIA" className="w-10 h-10 rounded-full border border-accent/30" />
               </div>
 
               <div className="flex gap-2 flex-wrap">

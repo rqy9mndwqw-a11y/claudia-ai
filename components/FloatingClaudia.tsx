@@ -47,7 +47,7 @@ export default function FloatingClaudia() {
         }`}
       >
         <img
-          src="/claudia-avatar.png"
+          src="/avatar.png"
           alt="Claudia"
           className="w-full h-full object-cover object-top scale-100 grayscale-[0.3]"
         />
@@ -98,7 +98,7 @@ export default function FloatingClaudia() {
           {/* Content */}
           <div className="overflow-y-auto px-4 pb-6">
             <ClaudiaCharacter
-              imageSrc="/claudia-avatar.png"
+              imageSrc="/avatar.png"
               mood={claudiaMood}
               className="scale-90 py-0"
             />

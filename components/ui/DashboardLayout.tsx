@@ -69,7 +69,7 @@ export default function DashboardLayout({
                 style={{
                   left: `${Math.random() * 100}%`,
                   top: `-5%`,
-                  backgroundColor: ["#f59e0b", "#8b5cf6", "#ec4899", "#10b981", "#3b82f6", "#ef4444"][i % 6],
+                  backgroundColor: ["#f59e0b", "#8b5cf6", "#39ff14", "#10b981", "#3b82f6", "#ef4444"][i % 6],
                   animation: `confettiFall ${2 + Math.random() * 2}s ${Math.random() * 0.5}s ease-in forwards`,
                   transform: `rotate(${Math.random() * 360}deg)`,
                   width: `${4 + Math.random() * 8}px`,

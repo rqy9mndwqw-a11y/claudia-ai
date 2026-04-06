@@ -138,13 +138,13 @@ export default function Home() {
     <main className="min-h-screen flex flex-col items-center px-4 pb-24">
       {/* Background */}
       <div className="fixed inset-0 bg-gradient-to-b from-accent/[0.04] via-transparent to-transparent pointer-events-none" />
-      <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,rgba(232,41,91,0.06)_0%,transparent_60%)] pointer-events-none" />
+      <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,rgba(57,255,20,0.06)_0%,transparent_60%)] pointer-events-none" />
 
       {/* ── Hero ── */}
       <div className="relative z-10 flex flex-col items-center text-center max-w-2xl pt-[18vh]">
         <div className="w-24 h-24 rounded-full bg-surface border-2 border-accent/30 flex items-center justify-center mb-8 glow">
           <img
-            src="/claudia-logo.svg"
+            src="/logo.png"
             alt="Claudia"
             className="w-16 h-16 rounded-full"
             onError={(e) => {
@@ -284,7 +284,7 @@ export default function Home() {
       <div className="relative z-10 w-full max-w-3xl mt-12">
         <div className="relative overflow-hidden rounded-xl border border-purple-500/20 bg-surface p-8 md:p-10">
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_50%,rgba(168,85,247,0.06)_0%,transparent_50%)]" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_70%_50%,rgba(232,41,91,0.04)_0%,transparent_50%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_70%_50%,rgba(57,255,20,0.04)_0%,transparent_50%)]" />
           <div className="absolute inset-0 opacity-[0.02]"
             style={{
               backgroundImage: "linear-gradient(rgba(168,85,247,0.4) 1px, transparent 1px), linear-gradient(90deg, rgba(168,85,247,0.4) 1px, transparent 1px)",
@@ -423,7 +423,7 @@ export default function Home() {
             href={AERODROME_SWAP_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="group text-sm font-medium text-white/70 hover:text-white bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] hover:border-accent/30 px-5 py-2.5 rounded-lg transition-all duration-300 hover:shadow-[0_0_20px_rgba(232,41,91,0.1)]"
+            className="group text-sm font-medium text-white/70 hover:text-white bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] hover:border-accent/30 px-5 py-2.5 rounded-lg transition-all duration-300 hover:shadow-[0_0_20px_rgba(57,255,20,0.1)]"
           >
             Swap on Aerodrome
             <span className="inline-block ml-1.5 group-hover:translate-x-0.5 transition-transform">→</span>
