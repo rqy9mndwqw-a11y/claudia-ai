@@ -1,0 +1,257 @@
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,400;0,500;0,700;1,400&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background-color: #050505;
+  color: #e4e4e7;
+  font-family: 'DM Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Syne', sans-serif;
+  letter-spacing: -0.02em;
+}
+
+/* Tighter tracking on large display headings */
+.text-5xl, .text-6xl {
+  letter-spacing: -0.03em;
+}
+
+/* Smooth transitions baseline — all interactive elements */
+button, a, input, select {
+  transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+  transition-duration: 150ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Focus visible — global accessibility */
+*:focus-visible {
+  outline: 2px solid #39ff14;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Mobile nav slide-in */
+@keyframes slide-in {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+.animate-slide-in {
+  animation: slide-in 0.2s ease-out;
+}
+
+/* Skeleton shimmer */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, #0a0a0a 25%, #111111 50%, #0a0a0a 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 0.375rem;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #050505;
+}
+::-webkit-scrollbar-thumb {
+  background: #2a2a3a;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3a3a4a;
+}
+
+/* Chat message animation */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Pulse glow for accent elements */
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(57, 255, 20, 0.2); }
+  50% { box-shadow: 0 0 30px rgba(57, 255, 20, 0.4); }
+}
+.glow {
+  animation: glow 2s ease-in-out infinite;
+}
+
+/* Claudia avatar animations */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+@keyframes think {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25% { transform: translateY(-2px) rotate(-2deg); }
+  75% { transform: translateY(-2px) rotate(2deg); }
+}
+@keyframes sass {
+  0% { transform: translateY(0) rotate(0deg); }
+  20% { transform: translateY(-4px) rotate(-3deg); }
+  40% { transform: translateY(0) rotate(2deg); }
+  60% { transform: translateY(-2px) rotate(-1deg); }
+  100% { transform: translateY(0) rotate(0deg); }
+}
+@keyframes sideeye {
+  0%, 100% { transform: translateX(0) rotate(0deg); }
+  30% { transform: translateX(4px) rotate(-2deg); }
+  70% { transform: translateX(3px) rotate(-1deg); }
+}
+@keyframes smug {
+  0% { transform: translateY(0) scale(1); }
+  30% { transform: translateY(-6px) scale(1.03); }
+  60% { transform: translateY(-3px) scale(1.01); }
+  100% { transform: translateY(0) scale(1); }
+}
+.animate-float { animation: float 4s ease-in-out infinite; }
+.animate-think { animation: think 1.5s ease-in-out infinite; }
+.animate-sass { animation: sass 2s ease-in-out; }
+.animate-sideeye { animation: sideeye 3s ease-in-out infinite; }
+.animate-smug { animation: smug 1.5s ease-out; }
+
+/* ===== CLAUDIA CHARACTER ANIMATION SYSTEM ===== */
+
+/* Idle — combined breathing + float in one keyframe so transforms compose */
+@keyframes claudia-idle {
+  0%   { transform: translateY(0) scale(1); }
+  25%  { transform: translateY(-3px) scale(1.01); }
+  50%  { transform: translateY(-6px) scale(1.02); }
+  75%  { transform: translateY(-3px) scale(1.01); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+/* Impatient — nail-tapping micro-shakes + tilt */
+@keyframes claudia-impatient {
+  0%   { transform: translateX(0) rotate(0deg); }
+  20%  { transform: translateX(-3px) rotate(-1.5deg); }
+  40%  { transform: translateX(3px) rotate(1.5deg); }
+  60%  { transform: translateX(-2px) rotate(-1deg); }
+  80%  { transform: translateX(2px) rotate(1deg); }
+  100% { transform: translateX(0) rotate(0deg); }
+}
+
+/* Thinking — slow head-bob + scale pulse */
+@keyframes claudia-thinking {
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  25%  { transform: rotate(-3deg) scale(1.02); }
+  75%  { transform: rotate(3deg) scale(1.02); }
+}
+
+/* Excited — spring bounce (one-shot, 3 iterations) */
+@keyframes claudia-excited {
+  0%   { transform: translateY(0) scale(1); }
+  15%  { transform: translateY(-14px) scale(1.06); }
+  30%  { transform: translateY(-2px) scale(1.01); }
+  45%  { transform: translateY(-10px) scale(1.04); }
+  60%  { transform: translateY(-1px) scale(1); }
+  75%  { transform: translateY(-5px) scale(1.02); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+/* Skeptical — slow side-to-side lean + drift */
+@keyframes claudia-skeptical {
+  0%, 100% { transform: rotate(0deg) translateX(0); }
+  50%  { transform: rotate(-5deg) translateX(-4px); }
+}
+
+/* Talking — bounce in rhythm with text */
+@keyframes claudia-talking {
+  0%, 100% { transform: scale(1) translateY(0); }
+  50%  { transform: scale(1.02) translateY(-2px); }
+}
+
+/* Glow pulse for excited/talking states */
+@keyframes claudia-glow-pulse {
+  0%, 100% { filter: drop-shadow(0 0 8px rgba(57, 255, 20, 0.3)); }
+  50%  { filter: drop-shadow(0 0 18px rgba(57, 255, 20, 0.6)); }
+}
+
+/* Text bubble word reveal */
+@keyframes claudia-word-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Text bubble fade out */
+@keyframes claudia-text-fade {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+.claudia-character {
+  will-change: transform;
+}
+
+/* Idle: gentle float + breathe combined */
+.claudia-mood-idle {
+  animation: claudia-idle 5s ease-in-out infinite;
+}
+
+/* Impatient: rapid shake loop */
+.claudia-mood-impatient {
+  animation: claudia-impatient 0.35s ease-in-out infinite;
+}
+
+/* Thinking: slow bob, slight desaturation */
+.claudia-mood-thinking {
+  animation: claudia-thinking 2.5s ease-in-out infinite;
+  filter: saturate(0.8);
+  opacity: 0.9;
+}
+
+/* Excited: spring bounce 3x then done */
+.claudia-mood-excited {
+  animation: claudia-excited 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) 3;
+}
+
+/* Skeptical: slow lean loop */
+.claudia-mood-skeptical {
+  animation: claudia-skeptical 3s ease-in-out infinite;
+}
+
+/* Talking: rapid micro-pulses */
+.claudia-mood-talking {
+  animation: claudia-talking 0.15s ease-in-out infinite;
+}
+
+/* Glow effects */
+.claudia-glow-excited {
+  animation: claudia-glow-pulse 1s ease-in-out infinite;
+}
+.claudia-glow-talking {
+  animation: claudia-glow-pulse 1.5s ease-in-out infinite;
+}
+
+/* Word-by-word reveal */
+.claudia-word {
+  display: inline;
+  opacity: 0;
+  animation: claudia-word-in 0.15s ease-out forwards;
+}
+.claudia-text-fading {
+  animation: claudia-text-fade 0.5s ease-out forwards;
+}
+
+/* Bottom sheet slide-up for FloatingClaudia */
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
