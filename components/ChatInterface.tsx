@@ -8,7 +8,7 @@ import YieldCard from "./YieldCard";
 import ClaudiaAvatar from "./ClaudiaAvatar";
 import ClaudiaCharacter from "./ClaudiaCharacter";
 import type { ClaudiaMood } from "./ClaudiaCharacter";
-import { useClaudiaMood } from "../hooks/useClaudiaMood";
+import { useClaudiaMood } from "@/hooks/useClaudiaMood";
 
 interface Message {
   role: "user" | "assistant";
