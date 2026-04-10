@@ -17,6 +17,7 @@ import { searchToken } from "@/lib/data/dexscreener";
 import { getYields } from "@/lib/yields-cache";
 import { AGENT_ID_TO_INFO } from "@/lib/marketplace/agent-routing";
 import { writeFeedPost } from "@/lib/feed/post-writer";
+import { writeAppSignals } from "@/lib/scanner/write-app-signals";
 
 // Dynamic cost — see getFullAnalysisCost() in lib/credits/agent-tiers.ts
 
@@ -422,6 +423,21 @@ ${dataWithHistory || "No live data available."}`;
         risk: claudiaVerdict.risk,
         token_symbol: mainSymbol,
       });
+
+      // Write Buy verdicts to app_signals for trading bot consumption
+      if (claudiaVerdict.verdict === "Buy" && claudiaVerdict.score >= 7 && verdictPrice) {
+        await writeAppSignals(db as unknown as D1Database, analysisId, [{
+          ticker: mainTicker,
+          symbol: mainSymbol,
+          price: verdictPrice,
+          change24h: 0,
+          score: claudiaVerdict.score,
+          rating: claudiaVerdict.score >= 8 ? "STRONG_BUY" as const : "BUY" as const,
+          topSignal: claudiaVerdict.opinion?.slice(0, 100) || "Full analysis buy signal",
+          rsi: 0,
+          reasoning: claudiaVerdict.opinion || "",
+        }], "full_analysis");
+      }
 
       return NextResponse.json({
         analysisId,

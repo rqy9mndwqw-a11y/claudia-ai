@@ -6,6 +6,7 @@ import { postScanToX } from "@/lib/social/post-to-x";
 import { getClaudiaHoldersCount } from "@/lib/data/holders";
 import { saveAlerts } from "@/lib/scanner/performance-check";
 import { writeFeedPost } from "@/lib/feed/post-writer";
+import { writeAppSignals } from "@/lib/scanner/write-app-signals";
 
 const MANUAL_REFRESH_COST = 3;
 const MANUAL_COOLDOWN_MS = 10 * 60 * 1000; // 10 minutes
@@ -91,6 +92,9 @@ export async function POST(req: NextRequest) {
         token_symbol: topPicks[0]?.symbol || undefined,
       });
 
+      // Write top picks to app_signals for trading bot consumption
+      await writeAppSignals(db as unknown as D1Database, scanId, topPicks, "scanner");
+
       console.log(JSON.stringify({ event: "market_scan_complete", trigger: "cron", pairs: results.length, mood: marketMood, timestamp: Date.now() }));
       return NextResponse.json({ success: true, scanId, pairs: results.length, mood: marketMood });
     } catch (err) {
@@ -153,6 +157,9 @@ export async function POST(req: NextRequest) {
         full_content: JSON.stringify({ scanId, topPicks: topPicks.slice(0, 5), marketMood }),
         token_symbol: topPicks[0]?.symbol || undefined,
       });
+
+      // Write top picks to app_signals for trading bot consumption
+      await writeAppSignals(db as unknown as D1Database, scanId, topPicks, "scanner");
 
       console.log(JSON.stringify({ event: "market_scan_complete", trigger: "manual", pairs: results.length, mood: marketMood, timestamp: Date.now() }));
       return NextResponse.json({ success: true, scanId, pairs: results.length, mood: marketMood, creditsCharged: MANUAL_REFRESH_COST });
