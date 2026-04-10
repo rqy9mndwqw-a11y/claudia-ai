@@ -85,7 +85,7 @@ export async function POST(
       return NextResponse.json({ error: "Invalid agent ID" }, { status: 400 });
     }
 
-    // Bot internal auth — Telegram bot calling with shared secret
+    // Bot internal auth — Telegram bot / ACP calling with shared secret
     const botSecret = req.headers.get("x-bot-internal");
     if (botSecret && botSecret === process.env.BOT_INTERNAL_SECRET) {
       const body = await req.json().catch(() => null) as any;
@@ -94,6 +94,15 @@ export async function POST(
       }
       if (!/^0x[a-fA-F0-9]{40}$/.test(body.walletAddress)) {
         return NextResponse.json({ error: "Invalid wallet address" }, { status: 400 });
+      }
+
+      // Restrict bot-internal calls to known bot wallet addresses
+      const allowedBotWallets = (process.env.WHITELISTED_WALLET_ADDRESS || "")
+        .split(",")
+        .map((w) => w.trim().toLowerCase())
+        .filter(Boolean);
+      if (allowedBotWallets.length > 0 && !allowedBotWallets.includes(body.walletAddress.toLowerCase())) {
+        return NextResponse.json({ error: "Wallet not authorized for bot calls" }, { status: 403 });
       }
 
       // Get agent, validate — NO credit deduction for bot/ACP calls
@@ -114,7 +123,10 @@ export async function POST(
 
       // Get context and run pipeline
       const ai = getAI();
-      const groqKey = process.env.GROQ_API_KEY || "";
+      const groqKey = process.env.GROQ_API_KEY;
+      if (!groqKey) {
+        return NextResponse.json({ error: "Service temporarily unavailable" }, { status: 503 });
+      }
       const dataContext = await fetchAgentContext(agentId, body.message);
 
       // Portfolio context for bot-internal calls (if user has it enabled)
@@ -251,7 +263,14 @@ export async function POST(
       : dataContext;
 
     // ── Execute 3-step pipeline: 8B classify → Nemotron reason → Groq voice ──
-    const groqKey = process.env.GROQ_API_KEY || "";
+    const groqKey = process.env.GROQ_API_KEY;
+    if (!groqKey) {
+      // Refund — can't run without API key
+      if (!isCreator) {
+        await addCreditsAtomic(db, user.address, totalCost, "refund", `no-groq:${agentId}:${Date.now()}`);
+      }
+      return NextResponse.json({ error: "Service temporarily unavailable" }, { status: 503 });
+    }
     let reply: string;
     try {
       const ai = getAI();
@@ -334,7 +353,7 @@ export async function POST(
       const safetyScore = safetyScoreMatch ? parseInt(safetyScoreMatch[1]) : undefined;
       if (safetyScore !== undefined && (safetyScore <= 4 || safetyScore >= 8)) {
         const feedVerdict = safetyScore >= 8 ? "Buy" as const : "Avoid" as const;
-        writeFeedPost(db as unknown as D1Database, {
+        await writeFeedPost(db as unknown as D1Database, {
           post_type: "agent_post",
           agent_job: "safety_check",
           title: `Safety check: $${symbolMatch?.[1] || "???"}`,
@@ -343,7 +362,7 @@ export async function POST(
           score: safetyScore,
           risk: safetyScore <= 1 ? "Very High" : safetyScore <= 3 ? "High" : safetyScore <= 5 ? "Medium" : "Low",
           token_symbol: symbolMatch?.[1] || undefined,
-        }).catch(() => {});
+        });
       }
     }
 
@@ -355,7 +374,7 @@ export async function POST(
       const feedVerdict = verdictMatch?.[1] === "Trusted" ? "Buy" as const
         : verdictMatch?.[1] === "Avoid" ? "Avoid" as const
         : "Hold" as const;
-      writeFeedPost(db as unknown as D1Database, {
+      await writeFeedPost(db as unknown as D1Database, {
         post_type: "agent_post",
         agent_job: "dev_check",
         title: `Dev check: ${message.match(/0x[a-fA-F0-9]{6,8}/)?.[0] || "wallet"}...`,
@@ -363,7 +382,7 @@ export async function POST(
         verdict: feedVerdict,
         score,
         risk: score && score <= 3 ? "Very High" : score && score <= 5 ? "High" : score && score <= 7 ? "Medium" : "Low",
-      }).catch(() => {});
+      });
     }
 
     return NextResponse.json({
@@ -383,7 +402,7 @@ export async function POST(
       timestamp: Date.now(),
     }));
     return NextResponse.json(
-      { error: "Chat failed. If credits were deducted, they will be refunded." },
+      { error: "Chat failed. Please try again." },
       { status: 500 }
     );
   }

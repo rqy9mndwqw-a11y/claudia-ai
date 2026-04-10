@@ -22,6 +22,11 @@ export async function POST(req: NextRequest) {
 
   const db = getDB();
 
+  const groqKey = process.env.GROQ_API_KEY;
+  if (!groqKey) {
+    return NextResponse.json({ error: "Service temporarily unavailable" }, { status: 503 });
+  }
+
   if (isCron) {
     // ── Cron path — secret-protected ──
     if (secret !== process.env.SCANNER_SECRET) {
@@ -37,7 +42,6 @@ export async function POST(req: NextRequest) {
 
     try {
       const ai = getAI();
-      const groqKey = process.env.GROQ_API_KEY || "";
       const { results, summary, topPicks, marketMood } = await runMarketScan(ai, groqKey);
 
       const scanId = crypto.randomUUID();
@@ -76,16 +80,16 @@ export async function POST(req: NextRequest) {
         })
         .catch(() => {}); // never fail the scan
 
-      // Fire-and-forget: post scan to CLAUDIA feed
+      // Post scan to CLAUDIA feed (awaited so CF Workers doesn't kill it)
       const topSymbols = topPicks.slice(0, 3).map((p: any) => p.symbol).join(", ");
-      writeFeedPost(db as unknown as D1Database, {
+      await writeFeedPost(db as unknown as D1Database, {
         post_type: "market_scan",
         agent_job: "market_scan",
         title: `Market Scan — ${results.length} pairs`,
         content: summary ? summary.slice(0, 280) : `Scanned ${results.length} pairs. Mood: ${marketMood}. Top picks: ${topSymbols}`,
         full_content: JSON.stringify({ scanId, topPicks: topPicks.slice(0, 5), marketMood }),
         token_symbol: topPicks[0]?.symbol || undefined,
-      }).catch(() => {});
+      });
 
       console.log(JSON.stringify({ event: "market_scan_complete", trigger: "cron", pairs: results.length, mood: marketMood, timestamp: Date.now() }));
       return NextResponse.json({ success: true, scanId, pairs: results.length, mood: marketMood });
@@ -127,7 +131,6 @@ export async function POST(req: NextRequest) {
 
     try {
       const ai = getAI();
-      const groqKey = process.env.GROQ_API_KEY || "";
       const { results, summary, topPicks, marketMood } = await runMarketScan(ai, groqKey);
 
       const scanId = crypto.randomUUID();
@@ -140,16 +143,16 @@ export async function POST(req: NextRequest) {
         "DELETE FROM market_scans WHERE id NOT IN (SELECT id FROM market_scans ORDER BY scanned_at DESC LIMIT 24)"
       ).run();
 
-      // Fire-and-forget: post scan to CLAUDIA feed
+      // Post scan to CLAUDIA feed (awaited so CF Workers doesn't kill it)
       const manualTopSymbols = topPicks.slice(0, 3).map((p: any) => p.symbol).join(", ");
-      writeFeedPost(db as unknown as D1Database, {
+      await writeFeedPost(db as unknown as D1Database, {
         post_type: "market_scan",
         agent_job: "market_scan",
         title: `Market Scan — ${results.length} pairs`,
         content: summary ? summary.slice(0, 280) : `Scanned ${results.length} pairs. Mood: ${marketMood}. Top picks: ${manualTopSymbols}`,
         full_content: JSON.stringify({ scanId, topPicks: topPicks.slice(0, 5), marketMood }),
         token_symbol: topPicks[0]?.symbol || undefined,
-      }).catch(() => {});
+      });
 
       console.log(JSON.stringify({ event: "market_scan_complete", trigger: "manual", pairs: results.length, mood: marketMood, timestamp: Date.now() }));
       return NextResponse.json({ success: true, scanId, pairs: results.length, mood: marketMood, creditsCharged: MANUAL_REFRESH_COST });

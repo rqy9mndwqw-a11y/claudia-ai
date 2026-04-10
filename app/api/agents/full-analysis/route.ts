@@ -8,6 +8,7 @@ import { CLAUDIA_VOICE_PROMPT } from "@/lib/claudia-voice";
 import { getFullAnalysisCost } from "@/lib/credits/agent-tiers";
 import { type AgentDataContext } from "@/lib/data/agent-data";
 import { formatDataContextForPrompt } from "@/lib/data/format-context";
+import { getTokenAlertHistory, formatAlertHistoryForPrompt } from "@/lib/data/scanner-history";
 import { getTaapiIndicators } from "@/lib/data/taapi";
 import { getCurrentPrices, extractTickers } from "@/lib/data/market-data";
 import { getFredEconomicContext } from "@/lib/data/fred";
@@ -129,7 +130,10 @@ export async function POST(req: NextRequest) {
     const estimateOnly = !!(body as any).estimateOnly;
 
     const ai = getAI();
-    const groqKey = process.env.GROQ_API_KEY || "";
+    const groqKey = process.env.GROQ_API_KEY;
+    if (!groqKey) {
+      return NextResponse.json({ error: "Service temporarily unavailable" }, { status: 503 });
+    }
 
     // Step 1 — Route to agents via 8B (needed for both estimate and run)
     let selectedAgentIds: string[];
@@ -231,6 +235,18 @@ export async function POST(req: NextRequest) {
 
       const formattedData = formatDataContextForPrompt(mergedContext);
 
+      // Inject scanner alert history (if available for this token)
+      let dataWithHistory = formattedData;
+      try {
+        const alertHistory = await getTokenAlertHistory(mainSymbol);
+        if (alertHistory) {
+          const historyBlock = formatAlertHistoryForPrompt(alertHistory);
+          dataWithHistory = `${formattedData}\n\n${historyBlock}`;
+        }
+      } catch {
+        // Non-critical — proceed without history
+      }
+
       // Step 3 — Contextualize with chat history if provided
       let contextualMessage = message;
       if (chatHistory && chatHistory.length > 0) {
@@ -264,7 +280,7 @@ RULES:
 - Under 150 words
 
 LIVE MARKET DATA:
-${formattedData || "No live data available."}`;
+${dataWithHistory || "No live data available."}`;
 
             const analysis = await callGroq(
               `${agentPrompt}\n\nUser question: ${contextualMessage}`,
@@ -394,8 +410,8 @@ ${formattedData || "No live data available."}`;
         }
       }
 
-      // Fire-and-forget: post to CLAUDIA feed
-      writeFeedPost(db as unknown as D1Database, {
+      // Post to CLAUDIA feed (awaited so CF Workers doesn't kill it)
+      await writeFeedPost(db as unknown as D1Database, {
         post_type: "agent_post",
         agent_job: "full_analysis",
         title: `${mainSymbol} Full Analysis`,
@@ -405,7 +421,7 @@ ${formattedData || "No live data available."}`;
         score: claudiaVerdict.score,
         risk: claudiaVerdict.risk,
         token_symbol: mainSymbol,
-      }).catch(() => {});
+      });
 
       return NextResponse.json({
         analysisId,
