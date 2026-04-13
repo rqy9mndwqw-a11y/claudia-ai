@@ -10,6 +10,7 @@ import Skeleton from "@/components/ui/Skeleton";
 import { useSessionToken } from "@/hooks/useSessionToken";
 import { useAgents } from "@/hooks/useAgents";
 import { useCredits } from "@/hooks/useCredits";
+import { emitPaymentFromHeaders } from "@/components/PaymentToastProvider";
 import { GATE_THRESHOLDS } from "@/lib/gate-thresholds";
 
 const CATEGORIES = [
@@ -143,6 +144,7 @@ function CommandCenter({ sessionToken, credits, creditsLoading }: { sessionToken
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
         body: JSON.stringify({ message: query.trim() }),
       });
+      if (res.ok) emitPaymentFromHeaders(res, "Full analysis");
       const data = await res.json() as any;
       if (data.analysisId) {
         router.push(`/analysis/${data.analysisId}`);

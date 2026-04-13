@@ -32,6 +32,43 @@ export function formatDataContextForPrompt(context: AgentDataContext): string {
 
   const sections: string[] = [];
 
+  // Target token banner — pinned at the top so agents know exactly which
+  // token the user asked about, and whether CEX indicators exist for it.
+  if (context.targetToken || context.tokenRouting) {
+    const target = context.targetToken || context.tokenRouting?.symbol || "unknown";
+    const routing = context.tokenRouting;
+    const bannerLines = [`TARGET TOKEN: ${target}`];
+    if (routing) {
+      bannerLines.push(`Data source: ${routing.source}`);
+      if (routing.chain) bannerLines.push(`Chain: ${routing.chain}`);
+      if (routing.token_address) bannerLines.push(`Contract: ${routing.token_address}`);
+      if (routing.pair_address) bannerLines.push(`Pair: ${routing.pair_address}`);
+      bannerLines.push(
+        `CEX indicators (RSI/MACD/EMA/BB): ${routing.has_cex_data ? "available" : "NOT AVAILABLE"}`
+      );
+      bannerLines.push(
+        `DEX market data: ${routing.has_dex_data ? "available" : "not available"}`
+      );
+    }
+    sections.push(bannerLines.join("\n"));
+  }
+
+  // Hard guard — injected BEFORE data sections so the model reads it first.
+  if (context.taapiUnavailable) {
+    const target = context.targetToken || context.tokenRouting?.symbol || "this token";
+    sections.push(
+      [
+        `⚠️ NO CEX TECHNICAL INDICATORS for ${target}.`,
+        `Do NOT invent or reference RSI, MACD, EMA, Bollinger Bands, stochastic, CCI, ADX, or any other TAAPI technical indicator — they are not available for this token.`,
+        `Do NOT analyze data from a different token (e.g. BTC) as if it were ${target}.`,
+        `Start your response with: "Limited data available (no CEX indicators)..."`,
+        context.tokenRouting?.has_dex_data
+          ? `Use only the DEX market data below (price, liquidity, volume, buy/sell counts, FDV, pair age).`
+          : `No DEX data is available either — state this plainly and do not speculate on price action.`,
+      ].join("\n")
+    );
+  }
+
   // Prices (CoinGecko — kept)
   if (context.prices && Object.keys(context.prices).length > 0) {
     const lines = ["CURRENT PRICES (CoinGecko):"];
@@ -46,6 +83,11 @@ export function formatDataContextForPrompt(context: AgentDataContext): string {
   if (context.taapiIndicators) {
     const formatted = formatTaapiContext(context.taapiIndicators);
     if (formatted) sections.push(formatted);
+  }
+
+  // DexScreener market data (for tokens not on CEX)
+  if (context.dexScreenerData) {
+    sections.push(context.dexScreenerData);
   }
 
   // BTC Market Context — CRITICAL for all alt analysis
@@ -133,6 +175,11 @@ export function formatDataContextForPrompt(context: AgentDataContext): string {
   // Contract safety check context
   if (context.safetyCheckContext) {
     sections.push(context.safetyCheckContext);
+  }
+
+  // Bot trading performance (historical data from Python bot)
+  if (context.botPerformance) {
+    sections.push(context.botPerformance);
   }
 
   // Portfolio context (user opted in)

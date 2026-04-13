@@ -13,8 +13,12 @@ import { getTaapiIndicators } from "@/lib/data/taapi";
 import { getCurrentPrices, extractTickers } from "@/lib/data/market-data";
 import { getFredEconomicContext } from "@/lib/data/fred";
 import { getCoinPrice, getCoinMetadata, formatCoinPaprikaContext } from "@/lib/data/coinpaprika";
-import { searchToken } from "@/lib/data/dexscreener";
 import { getYields } from "@/lib/yields-cache";
+import {
+  extractTokenRef,
+  resolveTokenDataSource,
+  formatDexScreenerContext,
+} from "@/lib/data/token-router";
 import { AGENT_ID_TO_INFO } from "@/lib/marketplace/agent-routing";
 import { writeFeedPost } from "@/lib/feed/post-writer";
 import { writeAppSignals } from "@/lib/scanner/write-app-signals";
@@ -170,6 +174,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         error: "Insufficient credits for this analysis.",
         credits_required: creditCost,
+        credits_current: user.credits,
       }, { status: 402 });
     }
 
@@ -180,47 +185,91 @@ export async function POST(req: NextRequest) {
 
     try {
 
-      // Step 2 — Fetch ALL data in ONE parallel batch (no duplicate TAAPI calls)
-      // TAAPI once, FRED once, CoinGecko once, then lightweight agent-specific sources
+      // Step 2 — Route the user's token to the right data source (never fall
+      // back to BTC/a different token), then fetch everything in parallel.
+      const tokenRef = extractTokenRef(message);
+      const routing = tokenRef
+        ? await resolveTokenDataSource(tokenRef)
+        : null;
+
+      // Ticker list for CoinGecko prices: known CEX tickers from the message.
+      // Always include BTC/ETH so agents have macro reference prices.
       const tickers = extractTickers(message);
-      const mainTicker = tickers[0] || "BTC/USD";
-      const mainSymbol = mainTicker.split("/")[0];
-      // Ensure BTC is always fetched for market regime context
       if (!tickers.includes("BTC/USD")) tickers.push("BTC/USD");
+      if (!tickers.includes("ETH/USD")) tickers.push("ETH/USD");
 
-      const needsCoinPaprika = selectedAgentIds.some((id) =>
-        id === "claudia-token-analyst" || id === "claudia-security-check"
-      );
+      // Canonical target symbol (for CoinPaprika lookups + downstream writes).
+      // Null if the user didn't actually name a token.
+      const mainSymbol = routing?.symbol || null;
+      const mainTicker =
+        routing?.source === "taapi_cex" && routing.cex_pair
+          ? routing.cex_pair
+          : mainSymbol
+          ? `${mainSymbol}/USD`
+          : null;
+
+      const needsCoinPaprika =
+        routing?.has_cex_data === true &&
+        selectedAgentIds.some(
+          (id) => id === "claudia-token-analyst" || id === "claudia-security-check"
+        );
       const needsYields = selectedAgentIds.some((id) => id === "claudia-yield-scout");
-      const needsDexScreener = selectedAgentIds.some((id) => id === "claudia-security-check");
 
-      const [prices, taapiIndicators, fredEconomic, cpPrice, cpMeta, dexPairs, yields] =
+      // TAAPI only for CEX-listed tokens. For DEX tokens we use the DexScreener
+      // pair already resolved by the router.
+      const taapiPromise = routing?.source === "taapi_cex" && routing.cex_pair
+        ? getTaapiIndicators(routing.cex_pair, "1h").catch(() => null)
+        : Promise.resolve(null);
+
+      const [prices, taapiIndicators, fredEconomic, cpPrice, cpMeta, yields] =
         await Promise.all([
           getCurrentPrices(tickers).catch(() => ({})),
-          getTaapiIndicators(mainTicker, "1h").catch(() => null),
+          taapiPromise,
           getFredEconomicContext().catch(() => null),
-          needsCoinPaprika ? getCoinPrice(mainSymbol).catch(() => null) : Promise.resolve(null),
-          needsCoinPaprika ? getCoinMetadata(mainSymbol).catch(() => null) : Promise.resolve(null),
-          needsDexScreener ? searchToken(mainSymbol).catch(() => []) : Promise.resolve([]),
+          needsCoinPaprika && mainSymbol ? getCoinPrice(mainSymbol).catch(() => null) : Promise.resolve(null),
+          needsCoinPaprika && mainSymbol ? getCoinMetadata(mainSymbol).catch(() => null) : Promise.resolve(null),
           needsYields ? getYields().catch(() => []) : Promise.resolve([]),
         ]);
 
       // Build merged context from all sources
       const mergedContext: AgentDataContext = {
         prices,
-        ...(taapiIndicators && { taapiIndicators }),
+        ...(taapiIndicators && taapiIndicators.candle && { taapiIndicators }),
         ...(fredEconomic && { fredEconomic }),
       };
 
-      // CoinPaprika
+      // Routing banner + no-CEX warning
+      if (routing) {
+        mergedContext.tokenRouting = routing;
+        mergedContext.targetToken = routing.symbol;
+        mergedContext.taapiUnavailable =
+          !routing.has_cex_data || !taapiIndicators?.candle;
+
+        // DexScreener market data block (non-CEX tokens)
+        if (routing.source === "dexscreener" && routing.pair) {
+          mergedContext.dexScreenerData = formatDexScreenerContext(
+            routing.pair,
+            routing.symbol
+          );
+        }
+      } else {
+        // User didn't name a token — flag so agents know
+        mergedContext.taapiUnavailable = true;
+      }
+
+      // CoinPaprika fundamentals
       if (cpPrice || cpMeta) {
         const formatted = formatCoinPaprikaContext(cpPrice, cpMeta);
         if (formatted) mergedContext.coinPaprika = formatted;
       }
 
-      // DexScreener security data
-      if ((dexPairs as any[]).length > 0) {
-        const pair = (dexPairs as any[])[0];
+      // Security agent also wants a buy/sell breakdown block — piggy-back on
+      // the router's pair (same data source, no extra API call).
+      if (
+        routing?.pair &&
+        selectedAgentIds.includes("claudia-security-check")
+      ) {
+        const pair = routing.pair;
         mergedContext.dexScreenerSecurity = [
           "DEXSCREENER DATA:",
           `Liquidity: $${pair.liquidity?.usd?.toLocaleString() || "?"}`,
@@ -238,14 +287,16 @@ export async function POST(req: NextRequest) {
 
       // Inject scanner alert history (if available for this token)
       let dataWithHistory = formattedData;
-      try {
-        const alertHistory = await getTokenAlertHistory(mainSymbol);
-        if (alertHistory) {
-          const historyBlock = formatAlertHistoryForPrompt(alertHistory);
-          dataWithHistory = `${formattedData}\n\n${historyBlock}`;
+      if (mainSymbol) {
+        try {
+          const alertHistory = await getTokenAlertHistory(mainSymbol);
+          if (alertHistory) {
+            const historyBlock = formatAlertHistoryForPrompt(alertHistory);
+            dataWithHistory = `${formattedData}\n\n${historyBlock}`;
+          }
+        } catch {
+          // Non-critical — proceed without history
         }
-      } catch {
-        // Non-critical — proceed without history
       }
 
       // Step 3 — Contextualize with chat history if provided
@@ -373,8 +424,19 @@ ${dataWithHistory || "No live data available."}`;
         nowMs
       ).run();
 
-      // Step 8 — Record prediction for outcome tracking (only if we have a resolved price)
-      const verdictPrice = (prices as Record<string, number>)[mainTicker];
+      // Step 8 — Record prediction for outcome tracking (only if we have a
+      // resolved price for the actual target token — never BTC-as-proxy).
+      // Price source: CoinGecko prices map for CEX tokens, DexScreener pair
+      // for DEX tokens, skip entirely if neither has a price.
+      let verdictPrice: number | null = null;
+      if (mainTicker) {
+        verdictPrice = (prices as Record<string, number>)[mainTicker] ?? null;
+      }
+      if (verdictPrice == null && routing?.pair?.priceUsd) {
+        const p = Number(routing.pair.priceUsd);
+        if (!isNaN(p) && p > 0) verdictPrice = p;
+      }
+
       if (verdictPrice && mainSymbol) {
         const btcPrice = (prices as Record<string, number>)["BTC/USD"] || null;
         // Market regime: derived from TAAPI candle open/close if analyzing BTC,
@@ -396,7 +458,7 @@ ${dataWithHistory || "No live data available."}`;
             analysisId,
             session.address.toLowerCase(),
             mainSymbol,
-            null,
+            routing?.token_address || null,
             claudiaVerdict.verdict,
             claudiaVerdict.score,
             claudiaVerdict.risk,
@@ -412,20 +474,30 @@ ${dataWithHistory || "No live data available."}`;
       }
 
       // Post to CLAUDIA feed (awaited so CF Workers doesn't kill it)
+      const feedTitle = mainSymbol ? `${mainSymbol} Full Analysis` : "Full Analysis";
       await writeFeedPost(db as unknown as D1Database, {
         post_type: "agent_post",
         agent_job: "full_analysis",
-        title: `${mainSymbol} Full Analysis`,
+        title: feedTitle,
         content: claudiaVerdict.opinion,
         full_content: JSON.stringify({ analysisId, synthesis, claudiaVerdict }),
         verdict: claudiaVerdict.verdict as "Buy" | "Hold" | "Avoid",
         score: claudiaVerdict.score,
         risk: claudiaVerdict.risk,
-        token_symbol: mainSymbol,
+        ...(mainSymbol && { token_symbol: mainSymbol }),
       });
 
-      // Write Buy verdicts to app_signals for trading bot consumption
-      if (claudiaVerdict.verdict === "Buy" && claudiaVerdict.score >= 7 && verdictPrice) {
+      // Write Buy verdicts to app_signals for trading bot consumption.
+      // Only when the target token is on CEX — the bot trades on CEX exchanges,
+      // so DEX-only buy signals would have nowhere to route.
+      if (
+        claudiaVerdict.verdict === "Buy" &&
+        claudiaVerdict.score >= 7 &&
+        verdictPrice &&
+        mainTicker &&
+        mainSymbol &&
+        routing?.has_cex_data
+      ) {
         await writeAppSignals(db as unknown as D1Database, analysisId, [{
           ticker: mainTicker,
           symbol: mainSymbol,

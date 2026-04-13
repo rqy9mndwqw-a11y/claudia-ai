@@ -9,6 +9,8 @@ import { useSessionToken } from "@/hooks/useSessionToken";
 import { GATE_THRESHOLDS } from "@/lib/gate-thresholds";
 import type { ScanResult } from "@/lib/scanner/market-scanner";
 import TradingViewChart from "@/components/TradingViewChart";
+import { emitPaymentFromHeaders } from "@/components/PaymentToastProvider";
+import TradeButton from "@/components/trading/TradeButton";
 
 interface ScanData {
   scannedAt: number;
@@ -169,6 +171,7 @@ function PairDrawer({
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
         body: JSON.stringify({ message: `Full analysis on ${pair.symbol}` }),
       });
+      if (res.ok) emitPaymentFromHeaders(res, "Full analysis");
       const data = (await res.json()) as any;
       if (data.analysisId) { onClose(); router.push(`/analysis/${data.analysisId}`); }
       else { setAnalysisError(data.error || "Analysis failed. Try again."); }
@@ -253,6 +256,14 @@ function PairDrawer({
               <><span>&#9889;</span> Full Analysis &mdash; 6-10 credits</>
             )}
           </button>
+
+          {/* Trade button — feature-flagged; renders nothing when disabled */}
+          <TradeButton
+            symbol={pair.symbol.replace("/USD", "")}
+            source_page="scanner"
+            label="Trade this signal"
+          />
+
 
           <p className="text-zinc-700 text-xs text-center mt-4 font-mono">
             scanned {timeAgo(scannedAt)} &middot; scores update every 2 hours
@@ -350,7 +361,10 @@ function ScannerContent({ sessionToken }: { sessionToken: string | null }) {
         {/* Header row */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="font-heading font-bold text-white text-xl">Market Scanner</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="font-heading font-bold text-white text-xl">Market Scanner</h1>
+              <span className="text-[9px] font-mono text-base-blue bg-base-blue/10 border border-base-blue/20 px-1.5 py-0.5 rounded">BASE</span>
+            </div>
             <p className={`text-[10px] font-mono mt-0.5 ${staleData ? "text-red-500 animate-pulse" : "text-zinc-600"}`}>
               Updated {timeAgo(scan.scannedAt)} &middot; {scan.pairCount} pairs &middot; auto-scan every 2h
               {staleData && " \u2022 STALE DATA"}

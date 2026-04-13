@@ -231,6 +231,66 @@ Index: `idx_snapshots_month(month DESC)`
 
 ---
 
+### agent_check_results
+Migration: 0042_rug_check_cache.sql
+Purpose: Cache rug-check + whale-alert results so the shareable result pages don't re-run the analysis (and don't consume credits on view).
+
+| Column | Type | Default | Notes |
+|--------|------|---------|-------|
+| id | INTEGER PRIMARY KEY AUTOINCREMENT | — | |
+| kind | TEXT NOT NULL | — | `'rug-check'` \| `'whale-alert'` |
+| token_address | TEXT NOT NULL | — | Lowercase ERC-20 address |
+| token_symbol | TEXT | NULL | |
+| token_name | TEXT | NULL | |
+| chain | TEXT | NULL | `'base'`, `'ethereum'`, etc. |
+| requester_address | TEXT NOT NULL | — | Wallet that paid for the original check |
+| result_json | TEXT NOT NULL | — | Full analysis payload |
+| created_at | TEXT NOT NULL | — | ISO 8601 |
+
+UNIQUE: `(kind, token_address)` — subsequent checks upsert the latest result.
+Indexes: `idx_agent_check_kind_addr(kind, token_address)`, `idx_agent_check_requester(requester_address)`.
+
+---
+
+### scanner_alerts — alert_source column (0043)
+Migration: 0043_scanner_alert_source.sql
+Purpose: Tag each alert with its origin so the UI can badge source ("📈 Top gainer 4h", "🚨 Flashblocks launch", etc.).
+
+| Column | Type | Default | Notes |
+|--------|------|---------|-------|
+| alert_source | TEXT | NULL | `'top50'` \| `'base_trending'` \| `'gainer_1h'` \| `'gainer_4h'` \| `'gainer_24h'` \| `'watchlist'` \| `'launch'` \| NULL (legacy) |
+
+Index: `idx_scanner_alerts_source(alert_source, alerted_at DESC)`.
+
+---
+
+### user_trades
+Migration: 0044_user_trades.sql
+Purpose: Record on-chain DEX trades executed via "Act on Signal". Written by `POST /api/trading/record` after the client broadcasts. Idempotent — UNIQUE on `tx_hash`.
+
+**Feature-flagged** — only populated when `NEXT_PUBLIC_TRADE_EXECUTION_ENABLED=true`.
+
+| Column | Type | Default | Notes |
+|--------|------|---------|-------|
+| id | INTEGER PRIMARY KEY AUTOINCREMENT | — | |
+| wallet_address | TEXT NOT NULL | — | Lowercase — server-normalized |
+| token_address | TEXT NOT NULL | — | Lowercase ERC-20 |
+| token_symbol | TEXT NOT NULL | — | |
+| venue | TEXT NOT NULL | — | `'dex_0x_base'` (only value today) |
+| spend_usdc | REAL NOT NULL | — | |
+| tokens_received | REAL NOT NULL | — | |
+| effective_price | REAL NOT NULL | — | `spend_usdc / tokens_received` |
+| price_impact_pct | REAL | NULL | |
+| gas_usd | REAL | NULL | |
+| tx_hash | TEXT NOT NULL UNIQUE | — | Lowercase — prevents double-logging |
+| signal_id | TEXT | NULL | FK-ish to `scanner_alerts.id` — not enforced |
+| source_page | TEXT | NULL | `'scanner'` \| `'full-analysis'` \| `'compare'` \| `'watchlist'` \| `'feed'` \| `'direct'` |
+| created_at | TEXT NOT NULL | — | ISO 8601 |
+
+Indexes: `idx_user_trades_wallet(wallet_address, created_at DESC)`, `idx_user_trades_token(token_address)`, `idx_user_trades_signal(signal_id)`.
+
+---
+
 ## External Data Sources
 
 ### CoinPaprika (`lib/data/coinpaprika.ts`)

@@ -1,14 +1,17 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useAccount, useSignMessage } from "wagmi";
+import { useSearchParams } from "next/navigation";
+import { useAccount } from "wagmi";
 import ReactMarkdown from "react-markdown";
 import rehypeSanitize from "rehype-sanitize";
 import YieldCard from "./YieldCard";
 import ClaudiaAvatar from "./ClaudiaAvatar";
 import ClaudiaCharacter from "./ClaudiaCharacter";
 import type { ClaudiaMood } from "./ClaudiaCharacter";
-import { useClaudiaMood } from "@/hooks/useClaudiaMood";
+import { useClaudiaMood } from "../hooks/useClaudiaMood";
+import InsufficientCredits from "./InsufficientCredits";
+import { emitPaymentFromHeaders } from "./PaymentToastProvider";
 
 interface Message {
   role: "user" | "assistant";
@@ -46,22 +49,34 @@ const EMPTY_GREETINGS = [
   "Claude would've given you a disclaimer by now. I'll give you answers.",
 ];
 
+/** Read session token from localStorage — same store as useSessionToken but no signing. */
+function readSessionToken(address: string | undefined): string | null {
+  if (!address || typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(`claudia_session_${address.toLowerCase()}`);
+    if (!raw) return null;
+    const { token, expiry } = JSON.parse(raw);
+    if (Date.now() > expiry) return null;
+    return token;
+  } catch { return null; }
+}
+
 export default function ChatInterface() {
   const { address } = useAccount();
-  const { signMessageAsync } = useSignMessage();
+  const searchParams = useSearchParams();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showCreditBanner, setShowCreditBanner] = useState(false);
   const [yields, setYields] = useState<YieldPool[]>([]);
   const [yieldsLoading, setYieldsLoading] = useState(true);
   const [showYields, setShowYields] = useState(false);
   const [avatarState, setAvatarState] = useState<AvatarState>("idle");
-  const [session, setSession] = useState<{ signature: string; message: string } | null>(null);
-  const [signingIn, setSigningIn] = useState(false);
   const [thinkingQuip, setThinkingQuip] = useState("");
   const [emptyGreeting] = useState(() => EMPTY_GREETINGS[Math.floor(Math.random() * EMPTY_GREETINGS.length)]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const autoSentRef = useRef(false);
 
   // CLAUDIA mood system — maps dashboard state to character mood
   const claudiaMood = useClaudiaMood({
@@ -120,46 +135,15 @@ export default function ChatInterface() {
     }
   }, [loading]);
 
-  // Sign session on first use — get nonce, sign, verify, receive session token
-  const ensureSession = useCallback(async (): Promise<{ signature: string; message: string } | null> => {
-    if (session) return session;
-
-    setSigningIn(true);
-    try {
-      // Step 1: Get nonce message
-      const nonceRes = await fetch("/api/session");
-      const { message } = await nonceRes.json() as any;
-
-      // Step 2: Sign with wallet
-      const signature = await signMessageAsync({ message });
-
-      // Step 3: Verify signature → get session token
-      const verifyRes = await fetch("/api/session/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address, signature, message }),
-      });
-
-      if (!verifyRes.ok) {
-        setSigningIn(false);
-        return null;
-      }
-
-      const { token } = await verifyRes.json() as any;
-      // Store token as the session — used in Authorization header
-      const s = { signature: token, message };
-      setSession(s);
-      setSigningIn(false);
-      return s;
-    } catch {
-      setSigningIn(false);
-      return null;
-    }
-  }, [session, signMessageAsync, address]);
-
   const sendMessage = useCallback(
     async (text: string) => {
       if (!text.trim() || loading || !address) return;
+
+      // Read session token from localStorage — created by useSessionToken elsewhere
+      const sessionToken = readSessionToken(address);
+      if (!sessionToken) {
+        return;
+      }
 
       const userMsg: Message = { role: "user", content: text.trim().slice(0, 2000) };
       const updated = [...messages, userMsg];
@@ -169,27 +153,27 @@ export default function ChatInterface() {
       setAvatarState("thinking");
 
       try {
-        const sess = await ensureSession();
-        if (!sess) {
-          setMessages([...updated, { role: "assistant", content: "Wallet verification failed. Disconnect and reconnect." }]);
-          return;
-        }
-
         const res = await fetch("/api/chat", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${sess.signature}`,
+            "Authorization": `Bearer ${sessionToken}`,
           },
           body: JSON.stringify({
             messages: updated.map((m) => ({ role: m.role, content: m.content })),
           }),
         });
 
+        if (res.ok) emitPaymentFromHeaders(res, "Chat");
         const data = await res.json() as any;
 
         if (res.status === 429) {
           setMessages([...updated, { role: "assistant", content: "Chill. You're sending too many messages. I'm not going anywhere." }]);
+          return;
+        }
+        if (res.status === 402) {
+          setMessages([...updated, { role: "assistant", content: "You're out of credits. Grab a pack and come back — I'll be here." }]);
+          setShowCreditBanner(true);
           return;
         }
         if (res.status === 403) {
@@ -197,8 +181,7 @@ export default function ChatInterface() {
           return;
         }
         if (res.status === 401) {
-          setSession(null);
-          setMessages([...updated, { role: "assistant", content: "Your session expired. Send that again and I'll have you re-sign." }]);
+          setMessages([...updated, { role: "assistant", content: "Your session expired. Disconnect and reconnect your wallet." }]);
           return;
         }
         if (data.error) throw new Error(data.error);
@@ -211,8 +194,22 @@ export default function ChatInterface() {
         setLoading(false);
       }
     },
-    [messages, loading, address, ensureSession]
+    [messages, loading, address]
   );
+
+  // Auto-send query from URL param (e.g. /chat?q=Full+analysis+on+ETH)
+  useEffect(() => {
+    const q = searchParams.get("q");
+    if (!q || autoSentRef.current || !address || loading || messages.length > 0) return;
+    // Small delay to let wagmi fully settle
+    const timer = setTimeout(() => {
+      if (!autoSentRef.current) {
+        autoSentRef.current = true;
+        sendMessage(q);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchParams, address, loading, messages.length, sendMessage]);
 
   const handleAskAboutYield = (project: string, symbol: string, apy: number) => {
     sendMessage(`Tell me about ${project}'s ${symbol} pool at ${apy}% APY. Worth it or trash?`);
@@ -306,9 +303,9 @@ export default function ChatInterface() {
                     </button>
                   ))}
                 </div>
-                {signingIn && (
+                {!readSessionToken(address) && (
                   <p className="text-coral text-xs mt-4 animate-pulse">
-                    Sign the message in your wallet to verify ownership...
+                    Waiting for session... Connect your wallet to continue.
                   </p>
                 )}
               </div>
@@ -333,11 +330,17 @@ export default function ChatInterface() {
                 >
                   {msg.role === "assistant" ? (
                     <div className="prose prose-invert prose-sm max-w-none
-                                    prose-p:my-1.5 prose-ul:my-1 prose-li:my-0.5
+                                    prose-p:my-2 prose-p:leading-relaxed
+                                    prose-ul:my-2 prose-ul:pl-4 prose-li:my-1
+                                    prose-ol:my-2 prose-ol:pl-4
                                     prose-strong:text-accent prose-strong:font-bold
                                     prose-em:text-zinc-400 prose-em:italic
-                                    prose-code:text-coral prose-code:bg-black/30 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none
-                                    prose-h3:text-white prose-h3:text-sm prose-h3:font-heading prose-h3:font-bold prose-h3:mt-4 prose-h3:mb-1.5
+                                    prose-code:text-coral prose-code:bg-black/30 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-code:before:content-none prose-code:after:content-none
+                                    prose-h1:text-white prose-h1:text-base prose-h1:font-heading prose-h1:font-bold prose-h1:mt-4 prose-h1:mb-2
+                                    prose-h2:text-white prose-h2:text-sm prose-h2:font-heading prose-h2:font-bold prose-h2:mt-4 prose-h2:mb-1.5
+                                    prose-h3:text-white prose-h3:text-sm prose-h3:font-heading prose-h3:font-bold prose-h3:mt-3 prose-h3:mb-1.5
+                                    prose-hr:border-white/10 prose-hr:my-4
+                                    prose-blockquote:border-accent/30 prose-blockquote:text-zinc-400
                                     prose-a:text-accent prose-a:no-underline hover:prose-a:underline">
                       <ReactMarkdown rehypePlugins={[rehypeSanitize]}>
                         {msg.content}
@@ -371,6 +374,11 @@ export default function ChatInterface() {
 
             <div ref={messagesEndRef} />
           </div>
+
+          {/* Credit shortage banner */}
+          {showCreditBanner && (
+            <InsufficientCredits onDismiss={() => setShowCreditBanner(false)} />
+          )}
 
           {/* Input */}
           <div className="px-4 py-3 border-t border-white/5">

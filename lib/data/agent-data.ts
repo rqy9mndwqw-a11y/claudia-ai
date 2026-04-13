@@ -21,6 +21,13 @@ import { fetchDevWalletData, extractAddressFromQuery } from "./dev-wallet-data";
 import { buildDevCheckPrompt } from "@/lib/agents/prompts/dev-check";
 import { fetchSafetyCheckData, calculateSafetyScore } from "./safety-check-data";
 import { buildSafetyCheckPrompt } from "@/lib/agents/prompts/safety-check";
+import { getBotPerformanceContext } from "./bot-performance";
+import {
+  extractTokenRef,
+  resolveTokenDataSource,
+  formatDexScreenerContext,
+  type TokenRoutingResult,
+} from "./token-router";
 
 // ── Types ──
 
@@ -51,6 +58,16 @@ export interface AgentDataContext {
   pulseContext?: string;
   devCheckContext?: string;
   safetyCheckContext?: string;
+  botPerformance?: string;
+  // ── Token routing (populated by lib/data/token-router.ts) ──
+  /** The token the user asked about (canonical symbol or address). */
+  targetToken?: string;
+  /** Where the data came from (taapi_cex, dexscreener, on_chain, unknown). */
+  tokenRouting?: TokenRoutingResult;
+  /** Formatted DexScreener block for prompts (non-CEX tokens). */
+  dexScreenerData?: string;
+  /** True if the target token has no CEX indicators — agents must not invent RSI/MACD. */
+  taapiUnavailable?: boolean;
 }
 
 // ── BTC Market Context — always fetched for analysis agents ──
@@ -98,6 +115,76 @@ async function fetchBtcContext(): Promise<BtcMarketContext | null> {
   }
 }
 
+// ── Shared routing helper ──
+// Every agent that wants price/technical data for "the token the user asked
+// about" goes through this. It NEVER falls back to an unrelated token.
+
+interface RoutedTokenContext {
+  targetToken: string | null;
+  routing: TokenRoutingResult | null;
+  /** TAAPI indicators if the token is on CEX, otherwise null. */
+  taapiIndicators: TaapiIndicators | null;
+  /** Formatted DexScreener block if source is DEX, otherwise undefined. */
+  dexScreenerData: string | undefined;
+  /** True if no CEX indicators are available for the target token. */
+  taapiUnavailable: boolean;
+}
+
+async function routeTokenForMessage(
+  message: string,
+  interval: string = "1h"
+): Promise<RoutedTokenContext> {
+  const ref = extractTokenRef(message);
+  if (!ref) {
+    return {
+      targetToken: null,
+      routing: null,
+      taapiIndicators: null,
+      dexScreenerData: undefined,
+      taapiUnavailable: true,
+    };
+  }
+
+  const routing = await resolveTokenDataSource(ref);
+  let taapiIndicators: TaapiIndicators | null = null;
+  let dexScreenerData: string | undefined;
+
+  if (routing.source === "taapi_cex" && routing.cex_pair) {
+    taapiIndicators = await getTaapiIndicators(routing.cex_pair, interval).catch(
+      () => null
+    );
+  } else if (routing.source === "dexscreener" && routing.pair) {
+    dexScreenerData = formatDexScreenerContext(routing.pair, routing.symbol);
+  }
+
+  return {
+    targetToken: routing.symbol || ref,
+    routing,
+    taapiIndicators,
+    dexScreenerData,
+    taapiUnavailable: !routing.has_cex_data || !taapiIndicators?.candle,
+  };
+}
+
+/**
+ * Merge a RoutedTokenContext into an AgentDataContext.
+ * Sets targetToken, tokenRouting, dexScreenerData, taapiUnavailable, and
+ * conditionally taapiIndicators (only when they actually exist).
+ */
+function applyRouting(
+  ctx: AgentDataContext,
+  routed: RoutedTokenContext
+): AgentDataContext {
+  if (routed.targetToken) ctx.targetToken = routed.targetToken;
+  if (routed.routing) ctx.tokenRouting = routed.routing;
+  if (routed.dexScreenerData) ctx.dexScreenerData = routed.dexScreenerData;
+  if (routed.taapiIndicators && routed.taapiIndicators.candle) {
+    ctx.taapiIndicators = routed.taapiIndicators;
+  }
+  ctx.taapiUnavailable = routed.taapiUnavailable;
+  return ctx;
+}
+
 // ── Agent → Data Source Map ──
 
 type DataFetcher = (message: string) => Promise<AgentDataContext>;
@@ -133,56 +220,60 @@ const AGENT_DATA_MAP: Record<string, DataFetcher> = {
   },
 
   "claudia-chart-reader": async (message) => {
+    const routed = await routeTokenForMessage(message, "1h");
     const tickers = extractTickers(message);
-    const mainTicker = tickers[0] || "BTC/USD";
-    const isBtc = mainTicker === "BTC/USD";
-    const [prices, indicators, btcCtx] = await Promise.all([
-      getCurrentPrices(tickers),
-      getTaapiIndicators(mainTicker, "1h").catch(() => null),
-      isBtc ? Promise.resolve(null) : fetchBtcContext(),
+    // BTC context is the market regime reference — fetched UNLESS the user
+    // is asking about BTC itself. Never conflated with the target token.
+    const isBtcTarget = routed.routing?.symbol === "BTC";
+    const [prices, btcCtx, botPerf] = await Promise.all([
+      tickers.length > 0 ? getCurrentPrices(tickers) : Promise.resolve({}),
+      isBtcTarget ? Promise.resolve(null) : fetchBtcContext(),
+      getBotPerformanceContext(message).catch(() => null),
     ]);
-    return {
+    const ctx: AgentDataContext = {
       prices,
-      ...(indicators && { taapiIndicators: indicators }),
       ...(btcCtx && { btcContext: btcCtx }),
+      ...(botPerf && { botPerformance: botPerf }),
     };
+    return applyRouting(ctx, routed);
   },
 
   "claudia-risk-check": async (message) => {
+    const routed = await routeTokenForMessage(message, "1h");
     const tickers = extractTickers(message);
-    const mainTicker = tickers[0] || "BTC/USD";
-    const isBtc = mainTicker === "BTC/USD";
-    const [prices, indicators, fredEconomic, btcCtx] = await Promise.all([
-      getCurrentPrices(tickers),
-      getTaapiIndicators(mainTicker, "1h").catch(() => null),
+    const isBtcTarget = routed.routing?.symbol === "BTC";
+    const [prices, fredEconomic, btcCtx, botPerf] = await Promise.all([
+      tickers.length > 0 ? getCurrentPrices(tickers) : Promise.resolve({}),
       getFredEconomicContext(),
-      isBtc ? Promise.resolve(null) : fetchBtcContext(),
+      isBtcTarget ? Promise.resolve(null) : fetchBtcContext(),
+      getBotPerformanceContext(message).catch(() => null),
     ]);
-    return {
+    const ctx: AgentDataContext = {
       prices,
-      ...(indicators && { taapiIndicators: indicators }),
-      ...(btcCtx && { btcContext: btcCtx }),
       fredEconomic,
+      ...(btcCtx && { btcContext: btcCtx }),
+      ...(botPerf && { botPerformance: botPerf }),
     };
+    return applyRouting(ctx, routed);
   },
 
   "claudia-token-analyst": async (message) => {
+    const routed = await routeTokenForMessage(message, "1h");
     const tickers = extractTickers(message);
-    const mainTicker = tickers[0] || "BTC/USD";
-    const isBtc = mainTicker === "BTC/USD";
-    const [prices, indicators, btcCtx] = await Promise.all([
-      getCurrentPrices(tickers),
-      getTaapiIndicators(mainTicker, "1h").catch(() => null),
-      isBtc ? Promise.resolve(null) : fetchBtcContext(),
+    const isBtcTarget = routed.routing?.symbol === "BTC";
+    const [prices, btcCtx, botPerf] = await Promise.all([
+      tickers.length > 0 ? getCurrentPrices(tickers) : Promise.resolve({}),
+      isBtcTarget ? Promise.resolve(null) : fetchBtcContext(),
+      getBotPerformanceContext(message).catch(() => null),
     ]);
 
-    // Supplement with CoinPaprika fundamentals (market cap, supply, team, beta)
+    // Supplement with CoinPaprika fundamentals — only for CEX-listed tokens.
+    // For DEX-only tokens CoinPaprika usually has no record; skip silently.
     let coinPaprika: string | undefined;
-    if (tickers.length > 0) {
-      const mainSymbol = tickers[0].split("/")[0];
+    if (routed.routing?.has_cex_data && routed.routing.symbol) {
       const [cpPrice, cpMeta] = await Promise.allSettled([
-        getCoinPrice(mainSymbol),
-        getCoinMetadata(mainSymbol),
+        getCoinPrice(routed.routing.symbol),
+        getCoinMetadata(routed.routing.symbol),
       ]);
       const formatted = formatCoinPaprikaContext(
         cpPrice.status === "fulfilled" ? cpPrice.value : null,
@@ -191,34 +282,56 @@ const AGENT_DATA_MAP: Record<string, DataFetcher> = {
       if (formatted) coinPaprika = formatted;
     }
 
-    return {
-      prices,
-      ...(indicators && { taapiIndicators: indicators }),
-      ...(btcCtx && { btcContext: btcCtx }),
-      ...(coinPaprika && { coinPaprika }),
-    };
-  },
-
-  "claudia-memecoin-radar": async (message) => {
-    const tickers = extractTickers(message);
-    const mainTicker = tickers[0] || "DOGE/USD";
-    const [prices, trending, indicators, btcCtx] = await Promise.all([
-      getCurrentPrices(tickers),
-      getTrendingPairs("base", 15),
-      getTaapiIndicators(mainTicker, "1h").catch(() => null),
-      fetchBtcContext(),
-    ]);
-
-    // DexPaprika for on-chain DEX data when a contract address is provided
+    // For DEX tokens pulled by address, DexPaprika adds on-chain depth/tx data
     let dexPaprika: string | undefined;
-    const contractMatch = message.match(/0x[a-fA-F0-9]{40}/);
-    if (contractMatch) {
-      const dexData = await getDexPaprikaToken(contractMatch[0]).catch(() => null);
+    if (routed.routing?.source === "dexscreener" && routed.routing.token_address) {
+      const dexData = await getDexPaprikaToken(routed.routing.token_address).catch(() => null);
       const formatted = formatDexPaprikaContext(dexData);
       if (formatted) dexPaprika = formatted;
     }
 
-    return { prices, trending, ...(indicators && { taapiIndicators: indicators }), ...(btcCtx && { btcContext: btcCtx }), ...(dexPaprika && { dexPaprika }) };
+    const ctx: AgentDataContext = {
+      prices,
+      ...(btcCtx && { btcContext: btcCtx }),
+      ...(coinPaprika && { coinPaprika }),
+      ...(dexPaprika && { dexPaprika }),
+      ...(botPerf && { botPerformance: botPerf }),
+    };
+    return applyRouting(ctx, routed);
+  },
+
+  "claudia-memecoin-radar": async (message) => {
+    // Memecoin radar: if user names a specific token, route it; otherwise
+    // just return trending pairs + BTC regime with no forced TAAPI call.
+    const routed = await routeTokenForMessage(message, "1h");
+    const tickers = extractTickers(message);
+    const [prices, trending, btcCtx] = await Promise.all([
+      tickers.length > 0 ? getCurrentPrices(tickers) : Promise.resolve({}),
+      getTrendingPairs("base", 15),
+      fetchBtcContext(),
+    ]);
+
+    // DexPaprika for on-chain DEX data when a contract address is provided.
+    // Prefer the routed token_address (already normalized) over a raw match.
+    let dexPaprika: string | undefined;
+    const addr = routed.routing?.token_address || message.match(/0x[a-fA-F0-9]{40}/)?.[0];
+    if (addr) {
+      const dexData = await getDexPaprikaToken(addr).catch(() => null);
+      const formatted = formatDexPaprikaContext(dexData);
+      if (formatted) dexPaprika = formatted;
+    }
+
+    const ctx: AgentDataContext = {
+      prices,
+      trending,
+      ...(btcCtx && { btcContext: btcCtx }),
+      ...(dexPaprika && { dexPaprika }),
+    };
+    // Only apply routing if the user actually named a token — otherwise the
+    // radar is in "discover trending" mode and target/unavailable flags would
+    // be noisy.
+    if (routed.targetToken) applyRouting(ctx, routed);
+    return ctx;
   },
 
   "claudia-base-guide": async () => {
@@ -253,50 +366,53 @@ const AGENT_DATA_MAP: Record<string, DataFetcher> = {
   },
 
   "claudia-security-check": async (message) => {
-    const tickers = extractTickers(message);
-    let coinPaprika: string | undefined;
-    let dexScreenerSecurity: string | undefined;
-    const mainTicker = tickers.length > 0 ? tickers[0].split("/")[0] : null;
-    const mainPair = tickers[0] || "BTC/USD";
+    const routed = await routeTokenForMessage(message, "1h");
+    const isBtcTarget = routed.routing?.symbol === "BTC";
 
-    // TAAPI for price/volume/momentum data + BTC market context
-    const isBtc = mainPair === "BTC/USD";
-    const [indicators, btcCtx] = await Promise.all([
-      getTaapiIndicators(mainPair, "1h").catch(() => null),
-      isBtc ? Promise.resolve(null) : fetchBtcContext(),
+    const [btcCtx, botPerf] = await Promise.all([
+      isBtcTarget ? Promise.resolve(null) : fetchBtcContext(),
+      getBotPerformanceContext(message).catch(() => null),
     ]);
 
-    if (mainTicker) {
-      const [cpMeta, dexPairs] = await Promise.allSettled([
-        getCoinMetadata(mainTicker),
-        searchToken(mainTicker),
-      ]);
-
-      if (cpMeta.status === "fulfilled" && cpMeta.value) {
-        const formatted = formatCoinPaprikaContext(null, cpMeta.value);
-        if (formatted) coinPaprika = formatted;
-      }
-
-      if (dexPairs.status === "fulfilled" && dexPairs.value.length > 0) {
-        const pair = dexPairs.value[0];
-        const lines = [
-          "DEXSCREENER SECURITY DATA:",
-          `Pair: ${pair.baseToken?.symbol}/${pair.quoteToken?.symbol}`,
-          `Price: $${pair.priceUsd}`,
-          `Liquidity: $${pair.liquidity?.usd?.toLocaleString() || "unknown"}`,
-          `24h Volume: $${pair.volume?.h24?.toLocaleString() || "unknown"}`,
-          `24h Buys: ${pair.txns?.h24?.buys || 0} / Sells: ${pair.txns?.h24?.sells || 0}`,
-          `24h Change: ${pair.priceChange?.h24 >= 0 ? "+" : ""}${pair.priceChange?.h24?.toFixed(1) || "?"}%`,
-        ];
-        dexScreenerSecurity = lines.join("\n");
-      }
+    // CoinPaprika metadata — only meaningful for CEX-listed tokens
+    let coinPaprika: string | undefined;
+    if (routed.routing?.has_cex_data && routed.routing.symbol) {
+      const cpMeta = await getCoinMetadata(routed.routing.symbol).catch(() => null);
+      const formatted = formatCoinPaprikaContext(null, cpMeta);
+      if (formatted) coinPaprika = formatted;
     }
 
-    return {
-      ...(indicators && { taapiIndicators: indicators }),
+    // Additional DEX security snapshot (buy/sell ratio, liquidity depth)
+    // Routing already returns the best pair — reuse it instead of re-searching.
+    let dexScreenerSecurity: string | undefined;
+    if (routed.routing?.pair) {
+      const p = routed.routing.pair;
+      const pct = (v: number | null | undefined) =>
+        v != null && !isNaN(v as number) ? `${v >= 0 ? "+" : ""}${v.toFixed(1)}%` : "?";
+      dexScreenerSecurity = [
+        "DEXSCREENER SECURITY DATA:",
+        `Pair: ${p.baseToken?.symbol}/${p.quoteToken?.symbol}`,
+        `Price: $${p.priceUsd}`,
+        `Liquidity: $${p.liquidity?.usd?.toLocaleString() || "unknown"}`,
+        `24h Volume: $${p.volume?.h24?.toLocaleString() || "unknown"}`,
+        `24h Buys: ${p.txns?.h24?.buys || 0} / Sells: ${p.txns?.h24?.sells || 0}`,
+        `24h Change: ${pct(p.priceChange?.h24)}`,
+      ].join("\n");
+    }
+
+    const ctx: AgentDataContext = {
       ...(btcCtx && { btcContext: btcCtx }),
       ...(coinPaprika && { coinPaprika }),
       ...(dexScreenerSecurity && { dexScreenerSecurity }),
+      ...(botPerf && { botPerformance: botPerf }),
+    };
+    return applyRouting(ctx, routed);
+  },
+
+  "claudia-bot-performance": async (message) => {
+    const botPerf = await getBotPerformanceContext(message).catch(() => null);
+    return {
+      ...(botPerf && { botPerformance: botPerf }),
     };
   },
 };

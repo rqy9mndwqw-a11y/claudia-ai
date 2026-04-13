@@ -8,6 +8,7 @@ import { PrivyProvider } from "@privy-io/react-auth";
 import { wagmiConfig } from "@/lib/wagmi";
 import { privyConfig } from "@/lib/web3/privy-config";
 import { ToastProvider } from "./ui/Toast";
+import { PaymentToastProvider } from "./PaymentToastProvider";
 import { useState, useEffect } from "react";
 
 function ReconnectHandler({ children }: { children: React.ReactNode }) {
@@ -39,9 +40,11 @@ export default function Providers({ children }: { children: React.ReactNode }) {
           })}
         >
           <ToastProvider>
-            <ReconnectHandler>
-              {children}
-            </ReconnectHandler>
+            <PaymentToastProvider>
+              <ReconnectHandler>
+                {children}
+              </ReconnectHandler>
+            </PaymentToastProvider>
           </ToastProvider>
         </RainbowKitProvider>
       </QueryClientProvider>

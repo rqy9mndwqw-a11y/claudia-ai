@@ -23,12 +23,12 @@ export const GROUP_STYLES: Record<GroupColor, {
   iconGlow: string;
 }> = {
   accent: {
-    headerText: "text-accent/60",
-    activeText: "text-accent",
-    activeBg: "bg-accent/10",
-    activeIndicator: "bg-accent",
-    hoverText: "hover:text-accent",
-    iconGlow: "drop-shadow-[0_0_8px_rgba(57,255,20,0.5)]",
+    headerText: "text-base-blue/60",
+    activeText: "text-base-blue",
+    activeBg: "bg-base-blue/10",
+    activeIndicator: "bg-base-blue",
+    hoverText: "hover:text-base-blue",
+    iconGlow: "drop-shadow-[0_0_8px_rgba(0,82,255,0.5)]",
   },
   blue: {
     headerText: "text-blue-400/60",
@@ -69,7 +69,6 @@ export const NAV_STANDALONE: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: "home" },
   { href: "/feed", label: "Feed", icon: "radio" },
   { href: "/leaderboard", label: "Leaderboard", icon: "trophy" },
-  { href: "/arena", label: "Arena", icon: "swords", badge: "SOON" },
 ];
 
 // Standalone (Leaderboard) uses amber for prestige/gold feel
@@ -82,8 +81,22 @@ export const NAV_GROUPS: NavGroup[] = [
     color: "blue",
     items: [
       { href: "/scanner", label: "Scanner", icon: "radar" },
+      { href: "/bot/performance", label: "Bot", icon: "chart" },
       { href: "/trade", label: "Trade", icon: "candlestick" },
       { href: "/defi", label: "DeFi", icon: "layers" },
+      { href: "/compare", label: "Compare", icon: "columns" },
+    ],
+  },
+  {
+    label: "Signal Pit",
+    color: "accent",
+    items: [
+      { href: "/arena", label: "Arena Home", icon: "swords" },
+      { href: "/arena/create", label: "Create Duel", icon: "plus" },
+      { href: "/arena/ai-challenge", label: "Challenge AI", icon: "bot" },
+      { href: "/arena/leaderboard", label: "Leaderboard", icon: "trophy" },
+      { href: "/hall-of-flame", label: "Hall of Flame", icon: "flame" },
+      { href: "/referrals", label: "Invite & Earn", icon: "gift" },
     ],
   },
   {
@@ -92,6 +105,9 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/agents", label: "Agents", icon: "bot" },
       { href: "/chat", label: "Chat", icon: "message" },
+      { href: "/rug-check", label: "Rug Check", icon: "shield" },
+      { href: "/whale-alert", label: "Whale Alert", icon: "waves" },
+      { href: "/roast", label: "Wallet Roast", icon: "flame" },
     ],
   },
   {
@@ -100,6 +116,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/credits", label: "Buy Credits", icon: "coins" },
       { href: "/buy", label: "Buy $CLAUDIA", icon: "zap" },
+      { href: "/docs", label: "Docs", icon: "book" },
       { href: "/agents/guide", label: "Become a Creator", icon: "sparkles", badge: "SOON" },
     ],
   },
@@ -109,7 +126,9 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/profile", label: "Profile", icon: "user" },
       { href: "/portfolio", label: "Portfolio", icon: "wallet" },
+      { href: "/watchlist", label: "Watchlist", icon: "eye" },
       { href: "/nft", label: "NFT", icon: "hexagon", badge: "SOON" },
+      { href: "/oracle", label: "Oracle", icon: "eye" },
       { href: "/stats", label: "Stats", icon: "chart" },
     ],
   },

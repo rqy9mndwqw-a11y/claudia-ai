@@ -8,10 +8,12 @@ import DashboardLayout from "@/components/ui/DashboardLayout";
 import TokenGate from "@/components/TokenGate";
 import Badge from "@/components/ui/Badge";
 import { useSessionToken } from "@/hooks/useSessionToken";
+import InsufficientCredits from "@/components/InsufficientCredits";
 import { useCredits } from "@/hooks/useCredits";
 import HandoffCard from "@/components/HandoffCard";
 import type { AgentPublic, SuggestedAgent } from "@/lib/marketplace/types";
 import { getAgentCreditCost, getTierInfo } from "@/lib/credits/agent-tiers";
+import { emitPaymentFromHeaders } from "@/components/PaymentToastProvider";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -43,6 +45,7 @@ function AgentChat({ agentId, sessionToken }: { agentId: string; sessionToken: s
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [creditShortage, setCreditShortage] = useState<{ required?: number; current?: number } | null>(null);
   const [agentLoading, setAgentLoading] = useState(true);
   const { credits, refresh: refreshCredits } = useCredits(sessionToken);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -84,6 +87,7 @@ function AgentChat({ agentId, sessionToken }: { agentId: string; sessionToken: s
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
         body: JSON.stringify({ message: lastUserMessage, agentId, chatHistory: messages.slice(-10) }),
       });
+      if (res.ok) emitPaymentFromHeaders(res, "Full analysis");
       const data = await res.json() as any;
       if (data.analysisId) {
         router.push(`/analysis/${data.analysisId}`);
@@ -137,17 +141,23 @@ function AgentChat({ agentId, sessionToken }: { agentId: string; sessionToken: s
         body: JSON.stringify({ message: userMessage }),
       });
 
+      if (res.ok) emitPaymentFromHeaders(res, "Agent chat");
       const data = await res.json().catch(() => null) as any;
 
       if (!res.ok) {
         if (res.status === 402) {
-          setError("Insufficient credits. Buy more on the Credits page.");
+          setCreditShortage({
+            required: data?.credits_required,
+            current: data?.credits_current,
+          });
+          setError(null);
         } else {
           setError(data?.error || "something broke. not my fault. try again.");
         }
         setMessages((prev) => prev.slice(0, -1));
         return;
       }
+      setCreditShortage(null);
 
       setMessages((prev) => [...prev, {
         role: "assistant",
@@ -343,17 +353,19 @@ function AgentChat({ agentId, sessionToken }: { agentId: string; sessionToken: s
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Error bar */}
-      {error && (
+      {/* Credit shortage banner */}
+      {creditShortage && (
+        <InsufficientCredits
+          creditsRequired={creditShortage.required}
+          currentBalance={creditShortage.current}
+          onDismiss={() => setCreditShortage(null)}
+        />
+      )}
+
+      {/* Error bar (non-credit errors) */}
+      {error && !creditShortage && (
         <div className="px-4 py-2 bg-red-500/10 border-t border-red-500/20">
-          <div className="flex items-center justify-between">
-            <p className="text-red-400 text-xs">{error}</p>
-            {error.includes("credits") && (
-              <Link href="/credits" className="text-accent text-xs hover:underline font-bold">
-                Buy Credits
-              </Link>
-            )}
-          </div>
+          <p className="text-red-400 text-xs">{error}</p>
         </div>
       )}
 

@@ -278,6 +278,222 @@ Rate limited: 60/min
 
 ---
 
+## Internal Routes (Worker-to-App, SCANNER_SECRET)
+
+### POST /api/xmtp/agent
+Purpose: Route XMTP chat messages to CLAUDIA agents
+Gate: `x-internal-secret` header (= SCANNER_SECRET)
+Rate limited: No (internal only)
+
+Request:
+```json
+{ "agentType": "roast|token|scanner|portfolio|full|general", "params": { "wallet": "0x...", "query": "$ETH" } }
+```
+
+Response:
+```json
+{ "response": "plain text agent response for XMTP chat" }
+```
+
+### POST /api/xmtp/log-query
+Purpose: Log XMTP token queries for social signal tracking
+Gate: `x-internal-secret` header (= SCANNER_SECRET)
+Rate limited: No (internal only)
+
+Request:
+```json
+{ "tokenAddress": "0x...", "symbol": "ETH", "senderAddress": "0x...", "queryText": "analyze $ETH" }
+```
+
+### POST /api/cron/alert-outcomes
+Purpose: Backfill 7d scanner alert outcomes
+Gate: `x-scanner-secret` header (= SCANNER_SECRET)
+Rate limited: No (cron only)
+
+Response:
+```json
+{ "updated": 5, "checked": 30, "errors": 0 }
+```
+
+### GET /api/bot/health
+Purpose: Heartbeat for Railway trading bot — pipeline health check
+Gate: `x-claudia-secret` header (= `CLAUDIA_INTERNAL_SECRET`)
+Rate limited: No (bot polls on startup + per cycle)
+
+Response:
+```json
+{
+  "status": "ok" | "stale" | "empty",
+  "last_signal_at": "2026-04-13T23:00:00Z",
+  "last_trade_at": "2026-04-13T21:30:00Z",
+  "signal_count_24h": 42,
+  "trade_count_24h": 3,
+  "server_time": "2026-04-13T23:59:00Z"
+}
+```
+
+Status derivation: `stale` when last_signal_at > 2h old OR last_trade_at > 24h old. `empty` when no rows at all.
+
+---
+
+## Agent Check Routes (Rug Check / Whale Alert)
+
+### POST /api/agents/rug-check
+Purpose: Credit-gated safety analysis for a contract address or symbol
+Tier: use (5M)
+Rate limited: 10/min per wallet
+Credits: 2 credits (refunded on failure)
+
+Request:
+```json
+{ "contract_address": "0x98eBd4Ac5d4f7022140c51e03CAc39d9F94CDE9B" }
+```
+
+Response:
+```json
+{
+  "kind": "rug-check",
+  "token_address": "0x98eb...",
+  "token_symbol": "CLAUDIA",
+  "liquidity": 250000,
+  "buys24h": 120,
+  "sells24h": 80,
+  "analysis": "SAFETY SCORE: 8/10\\nRED FLAGS: ...\\nVERDICT: Safe",
+  "credits_charged": 2
+}
+```
+
+### GET /api/agents/rug-check?address=0x...
+Purpose: Public cached read — no auth required. Powers `/rug-check/[address]` shareable page.
+Rate limited: 30/min
+
+Response:
+```json
+{ "cached": true, "result": { ... } }
+```
+
+### POST /api/agents/whale-alert
+Purpose: Multi-pool volume analysis for whale accumulation signals
+Tier: use (5M)
+Rate limited: 10/min
+Credits: 3 credits (refunded on failure)
+
+Request:
+```json
+{ "contract_address": "0x940181a94A35A4569E4529A3CDfB74e38FD98631" }
+```
+
+Response:
+```json
+{
+  "kind": "whale-alert",
+  "token_symbol": "AERO",
+  "total_volume": 1000000,
+  "total_liquidity": 500000,
+  "pool_count": 5,
+  "analysis": "WHALE ACTIVITY: High\\nACCUMULATION SIGNAL: Buying\\n...",
+  "credits_charged": 3
+}
+```
+
+### GET /api/agents/whale-alert?address=0x...
+Purpose: Public cached read
+
+---
+
+## Trading Routes (FLAG-GATED — pending security review)
+
+**Gate:** `NEXT_PUBLIC_TRADE_EXECUTION_ENABLED` must equal literal string `"true"`. When off, routes return 503.
+
+### POST /api/trading/quote
+Purpose: Read-only best-price comparison across 0x + Kraken. **Not feature-flagged** — safe to expose.
+Tier: use (5M)
+Rate limited: 30/min per wallet
+Credits: None
+
+Request:
+```json
+{ "token_address": "0x...", "token_symbol": "AERO", "spend_usdc": 10 }
+```
+
+Response:
+```json
+{
+  "quotes": [
+    { "venue": "0x_base", "venue_label": "Base DEX (0x)", "price_usd": 1.84, "price_impact_pct": 0.3, "gas_estimate_usd": 0.03, "effective_price": 1.87, "available": true },
+    { "venue": "kraken", "venue_label": "Kraken", "price_usd": 1.85, "fee_pct": 0.26, "available": true }
+  ],
+  "best": { "venue": "0x_base", ... },
+  "savings_vs_worst_pct": 1.08,
+  "expires_at": "2026-04-13T23:00:45Z"
+}
+```
+
+### POST /api/trading/execute
+Purpose: Signable 0x quote returning unsigned EIP-1559 tx. **Server never holds keys.**
+Tier: use (5M)
+Rate limited: 10/min
+Credits: 1 credit (refunded on failure)
+
+**Security:** `wallet_address` in body MUST equal `session.address` (case-insensitive). Any mismatch → 403.
+
+Request:
+```json
+{
+  "token_address": "0x...",
+  "token_symbol": "AERO",
+  "wallet_address": "0x...",
+  "spend_usdc": 10,
+  "slippage_pct": 0.5,
+  "signal_id": "optional-scanner-alert-id",
+  "source_page": "scanner|full-analysis|compare|watchlist|feed|direct"
+}
+```
+
+Response:
+```json
+{
+  "venue": "dex_0x_base",
+  "unsigned_tx": { "to": "0x...", "data": "0x...", "value": "0", "gas": "250000", "maxFeePerGas": "...", "maxPriorityFeePerGas": "...", "chainId": 8453 },
+  "allowance_target": "0x...",
+  "approve_tx": { "to": "USDC_ADDR", "data": "0x095ea7b3...", "value": "0" },
+  "quote": { "buy_amount": "...", "price": "1.84", "price_impact_pct": 0.3, "min_tokens_after_slippage": "...", "sources": [{"name":"Aerodrome","proportion":0.6}] },
+  "expires_at": 1744588800000
+}
+```
+
+Validation bounds (server-enforced):
+- `spend_usdc`: [1, 10000]
+- `slippage_pct`: [0.1, 5.0]
+- `token_address`: strict `/^0x[0-9a-fA-F]{40}$/`
+
+### POST /api/trading/record
+Purpose: Log a broadcast trade. Idempotent — UNIQUE on `tx_hash`.
+Tier: use (5M)
+Rate limited: 30/min
+Credits: None
+
+Request:
+```json
+{
+  "wallet_address": "0x...", "token_address": "0x...", "token_symbol": "AERO",
+  "venue": "dex_0x_base", "spend_usdc": 10, "tokens_received": 5.43,
+  "effective_price": 1.84, "price_impact_pct": 0.3, "tx_hash": "0x..."
+}
+```
+
+### GET /api/trading/history?token=0x...&limit=50
+Purpose: Session-scoped trade history. Wallet comes from session, never body/query. **Stays available even when execution flag is off.**
+Tier: use (5M)
+Rate limited: 30/min
+
+Response:
+```json
+{ "trades": [{ "id": 1, "token_symbol": "AERO", "venue": "dex_0x_base", "spend_usdc": 10, "tokens_received": 5.43, "effective_price": 1.84, "tx_hash": "0x...", "created_at": "..." }] }
+```
+
+---
+
 ## Error Responses (all routes)
 
 | Status | Meaning |

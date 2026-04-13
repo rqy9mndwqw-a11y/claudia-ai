@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import DashboardLayout from "@/components/ui/DashboardLayout";
 import ConnectGate from "@/components/auth/ConnectGate";
 import { useSessionToken } from "@/hooks/useSessionToken";
+import { emitPaymentFromHeaders } from "@/components/PaymentToastProvider";
 
 type FeedPost = {
   id: string;
@@ -13,6 +14,7 @@ type FeedPost = {
   agent_job: string;
   title: string;
   content: string;
+  full_content?: string;
   verdict?: string;
   score?: number;
   risk?: string;
@@ -34,25 +36,39 @@ export default function DashboardPage() {
   const [feed, setFeed] = useState<FeedPost[]>([]);
   const [stats, setStats] = useState<DashboardStats>({});
   const [feedLoading, setFeedLoading] = useState(true);
+  const [analyzingSymbol, setAnalyzingSymbol] = useState<string | null>(null);
 
-  // Fetch feed
+  const runFullAnalysis = async (symbol: string) => {
+    if (!sessionToken || analyzingSymbol) return;
+    setAnalyzingSymbol(symbol);
+    try {
+      const res = await fetch("/api/agents/full-analysis", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
+        body: JSON.stringify({ message: `Full analysis on ${symbol}` }),
+      });
+      if (res.ok) emitPaymentFromHeaders(res, "Full analysis");
+      const data = (await res.json()) as any;
+      if (data.analysisId) router.push(`/analysis/${data.analysisId}`);
+    } catch {}
+    finally { setAnalyzingSymbol(null); }
+  };
+
+  // Fetch feed — public API, no auth needed
   useEffect(() => {
-    if (!sessionToken) return;
-    fetch("/api/feed?limit=5", {
-      headers: { Authorization: `Bearer ${sessionToken}` },
-    })
+    fetch("/api/feed?limit=5")
       .then((r) => (r.ok ? r.json() : null))
       .then((d: any) => {
         if (d?.posts) setFeed(d.posts);
       })
       .catch(() => {})
       .finally(() => setFeedLoading(false));
-  }, [sessionToken]);
+  }, []);
 
   // Fetch user credits
   useEffect(() => {
     if (!sessionToken) return;
-    fetch("/api/credits/balance", {
+    fetch("/api/credits", {
       headers: { Authorization: `Bearer ${sessionToken}` },
     })
       .then((r) => (r.ok ? r.json() : null))
@@ -145,7 +161,7 @@ export default function DashboardPage() {
                 <div
                   key={post.id}
                   className="bg-surface rounded-lg border border-white/[0.06] p-4 hover:border-white/[0.1] transition-colors cursor-pointer"
-                  onClick={() => router.push("/chat")}
+                  onClick={() => router.push("/scanner")}
                 >
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-sm">
@@ -169,6 +185,32 @@ export default function DashboardPage() {
                     {post.risk && (
                       <span className="text-[10px] font-mono text-zinc-600">{post.risk} risk</span>
                     )}
+                    {(() => {
+                      let symbol = post.token_symbol;
+                      if (!symbol && post.full_content) {
+                        try {
+                          const fc = JSON.parse(post.full_content);
+                          symbol = fc.topPicks?.[0]?.symbol?.replace("/USD", "") || null;
+                        } catch {}
+                      }
+                      if (!symbol && post.content) {
+                        const m = post.content.match(/\b([A-Z]{2,6})\b/);
+                        if (m) symbol = m[1];
+                      }
+                      return symbol ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            runFullAnalysis(symbol);
+                          }}
+                          disabled={analyzingSymbol === symbol}
+                          className="ml-auto text-[10px] font-mono text-accent hover:text-white bg-accent/10 hover:bg-accent/20
+                                     border border-accent/20 px-2.5 py-0.5 rounded transition-colors disabled:opacity-50"
+                        >
+                          {analyzingSymbol === symbol ? "Analyzing..." : `Analyze ${symbol} →`}
+                        </button>
+                      ) : null;
+                    })()}
                   </div>
                 </div>
               ))}
@@ -180,14 +222,34 @@ export default function DashboardPage() {
           )}
         </div>
 
+        {/* Bot Performance Card */}
+        <div className="mb-8">
+          <div
+            className="bg-surface rounded-xl border border-blue-500/20 p-5 flex items-center justify-between cursor-pointer hover:border-blue-500/30 transition-colors"
+            onClick={() => router.push("/bot/performance")}
+          >
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-base">🤖</span>
+                <span className="font-heading text-sm font-bold text-white/80">Paper Trading Live</span>
+                <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+              </div>
+              <p className="text-zinc-600 text-xs">Bot is running on Railway. See how it&apos;s doing.</p>
+            </div>
+            <span className="text-zinc-500 text-xs font-mono hover:text-white transition-colors">
+              View Performance →
+            </span>
+          </div>
+        </div>
+
         {/* Quick Actions */}
         <div className="mb-8">
           <h2 className="font-heading text-base font-bold text-white/80 mb-4">Quick Actions</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
-              { label: "Run Full Analysis", href: "/chat", icon: "📊" },
+              { label: "Run Full Analysis", href: "/scanner", icon: "📊" },
+              { label: "Bot Performance", href: "/bot/performance", icon: "🤖" },
               { label: "Roast My Wallet", href: "/roast", icon: "🔥" },
-              { label: "Check a Contract", href: "/scanner", icon: "🔍" },
               { label: "Browse Yield Scout", href: "/defi", icon: "💰" },
             ].map((action) => (
               <button

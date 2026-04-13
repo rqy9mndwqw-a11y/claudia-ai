@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import DashboardLayout from "@/components/ui/DashboardLayout";
+import { emitPaymentFromHeaders } from "@/components/PaymentToastProvider";
 
 interface FeedPost {
   id: string;
@@ -59,38 +61,46 @@ function timeAgo(ts: number): string {
   return `${days}d ago`;
 }
 
-function FeedCard({ post }: { post: FeedPost }) {
+function FeedCard({ post, onAnalyze, analyzingSymbol }: { post: FeedPost; onAnalyze: (symbol: string) => void; analyzingSymbol: string | null }) {
   const [expanded, setExpanded] = useState(false);
   const badge = TYPE_BADGE[post.post_type] || TYPE_BADGE.agent_post;
 
   let parsedFull: any = null;
-  if (expanded && post.full_content) {
+  if (post.full_content) {
     try { parsedFull = JSON.parse(post.full_content); } catch {}
   }
+
+  // Extract a token symbol for the analysis button
+  const tokenSymbol = post.token_symbol
+    || parsedFull?.topPicks?.[0]?.symbol?.replace("/USD", "")
+    || (parsedFull?.analysisId ? null : post.content.match(/\b([A-Z]{2,6})\b/)?.[1])
+    || null;
+
+  // For analysis posts, link to the full analysis page
+  const analysisId = parsedFull?.analysisId || null;
 
   return (
     <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-5 hover:border-white/[0.1] transition-colors">
       {/* Header */}
       <div className="flex items-center gap-3 mb-3">
-        <div className="w-9 h-9 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400 text-sm font-bold shrink-0">
-          C
-        </div>
+        <img
+          src="/logo-40.png"
+          alt="CLAUDIA"
+          className="w-9 h-9 rounded-full border border-accent/30 shrink-0"
+        />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-white/90 font-medium text-sm">CLAUDIA</span>
-            <span className="text-white/20">·</span>
+            <span className="text-white/20">&middot;</span>
             <span className="text-white/30 text-xs">{timeAgo(post.created_at)}</span>
           </div>
           <div className="flex items-center gap-2 mt-0.5">
             <span className={`text-xs ${badge.color}`}>{badge.label}</span>
-            {post.agent_job && post.agent_job !== post.post_type && (
-              <span className="text-xs text-white/20">{post.agent_job}</span>
-            )}
           </div>
         </div>
-        {post.token_symbol && (
+        {tokenSymbol && (
           <span className="text-xs text-white/40 bg-white/[0.04] px-2 py-1 rounded-md font-mono">
-            {post.token_symbol}
+            {tokenSymbol}
           </span>
         )}
       </div>
@@ -119,62 +129,123 @@ function FeedCard({ post }: { post: FeedPost }) {
         </div>
       )}
 
-      {/* Expanded full content */}
-      {expanded && parsedFull && (
+      {/* Expanded full content — for analysis posts with synthesis */}
+      {expanded && parsedFull?.synthesis && (
         <div className="mt-3 mb-3 p-3 bg-white/[0.02] border border-white/[0.05] rounded-lg">
-          {parsedFull.synthesis && (
-            <div className="space-y-2 text-xs text-white/50">
-              {parsedFull.synthesis.consensus && (
-                <div><span className="text-white/30 uppercase tracking-wider">Consensus:</span> <span className="text-white/60">{parsedFull.synthesis.consensus}</span></div>
-              )}
-              {parsedFull.synthesis.recommendation && (
-                <div><span className="text-white/30 uppercase tracking-wider">Recommendation:</span> <span className="text-white/60">{parsedFull.synthesis.recommendation}</span></div>
-              )}
-            </div>
-          )}
-          {parsedFull.topPicks && (
-            <div className="space-y-1 text-xs text-white/50 mt-2">
-              <span className="text-white/30 uppercase tracking-wider">Top picks:</span>
-              {parsedFull.topPicks.map((p: any, i: number) => (
-                <div key={i} className="text-white/60 ml-2">
-                  {p.symbol} — {p.score}/10 {p.rating}
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="space-y-2 text-xs text-white/50">
+            {parsedFull.synthesis.consensus && (
+              <div><span className="text-white/30 uppercase tracking-wider">Consensus:</span> <span className="text-white/60">{parsedFull.synthesis.consensus}</span></div>
+            )}
+            {parsedFull.synthesis.recommendation && (
+              <div><span className="text-white/30 uppercase tracking-wider">Recommendation:</span> <span className="text-white/60">{parsedFull.synthesis.recommendation}</span></div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Expanded full content — for scan posts with topPicks */}
+      {expanded && parsedFull?.topPicks && (
+        <div className="mt-3 mb-3 p-3 bg-white/[0.02] border border-white/[0.05] rounded-lg">
+          <div className="space-y-1 text-xs text-white/50">
+            <span className="text-white/30 uppercase tracking-wider">Top picks:</span>
+            {parsedFull.topPicks.map((p: any, i: number) => (
+              <div key={i} className="flex items-center justify-between text-white/60 ml-2">
+                <span>{p.symbol} — {p.score}/10 {p.rating}</span>
+                <button
+                  onClick={() => onAnalyze(p.symbol?.replace("/USD", "") || p.symbol)}
+                  className="text-accent/60 hover:text-accent text-[10px] transition-colors"
+                >
+                  Analyze →
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
       {/* Footer */}
       <div className="flex items-center gap-4 pt-2 border-t border-white/[0.04]">
-        <span className="text-xs text-white/20 flex items-center gap-1">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 19V5m0 0-7 7m7-7 7 7"/></svg>
-          {post.upvotes}
-        </span>
-        <span className="text-xs text-white/20 flex items-center gap-1">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
-          {post.comment_count}
-        </span>
         {post.full_content && (
           <button
             onClick={() => setExpanded(!expanded)}
-            className="ml-auto text-xs text-purple-400/60 hover:text-purple-400 transition-colors"
+            className="text-xs text-purple-400/60 hover:text-purple-400 transition-colors"
           >
-            {expanded ? "Collapse" : "Full analysis"}
+            {expanded ? "Collapse" : "Expand"}
           </button>
         )}
+
+        {/* Analysis button — different behavior per post type */}
+        {analysisId ? (
+          <a
+            href={`/analysis/${analysisId}`}
+            className="ml-auto text-xs text-accent/60 hover:text-accent transition-colors"
+          >
+            View Full Analysis →
+          </a>
+        ) : tokenSymbol ? (
+          <button
+            onClick={() => onAnalyze(tokenSymbol)}
+            disabled={analyzingSymbol === tokenSymbol}
+            className="ml-auto text-xs text-accent/60 hover:text-accent transition-colors disabled:opacity-50"
+          >
+            {analyzingSymbol === tokenSymbol ? "Analyzing..." : `Full Analysis on ${tokenSymbol} →`}
+          </button>
+        ) : null}
       </div>
     </div>
   );
 }
 
+const EMPTY_STATES: Record<FilterType, { text: string; sub: string }> = {
+  all: { text: "No posts yet.", sub: "CLAUDIA will start posting when she runs her next scan." },
+  market_scan: { text: "No scans yet.", sub: "Scanner runs every 2 hours automatically." },
+  agent_post: { text: "No analyses yet.", sub: "Run a Full Analysis on any token to see results here." },
+  alpha_alert: { text: "No alerts yet.", sub: "Alerts fire when scanner finds high-confidence signals (8+/10)." },
+};
+
+function readSessionToken(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key?.startsWith("claudia_session_")) continue;
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      const { token, expiry } = JSON.parse(raw);
+      if (Date.now() < expiry) return token;
+    }
+  } catch {}
+  return null;
+}
+
 export default function FeedPage() {
+  const router = useRouter();
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [filter, setFilter] = useState<FilterType>("all");
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [nextCursor, setNextCursor] = useState<number | null>(null);
   const [hasMore, setHasMore] = useState(false);
+  const [analyzingSymbol, setAnalyzingSymbol] = useState<string | null>(null);
+
+  const handleAnalyze = async (symbol: string) => {
+    const token = readSessionToken();
+    if (!token) { router.push("/"); return; }
+    setAnalyzingSymbol(symbol);
+    try {
+      const res = await fetch("/api/agents/full-analysis", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ message: `Full analysis on ${symbol}` }),
+      });
+      if (res.ok) emitPaymentFromHeaders(res, "Full analysis");
+      const data = (await res.json()) as any;
+      if (data.analysisId) {
+        router.push(`/analysis/${data.analysisId}`);
+      }
+    } catch {}
+    finally { setAnalyzingSymbol(null); }
+  };
 
   const fetchPosts = useCallback(async (cursor?: number) => {
     const isLoadMore = !!cursor;
@@ -261,15 +332,18 @@ export default function FeedPage() {
           </div>
         ) : posts.length === 0 ? (
           <div className="text-center py-16">
-            <div className="w-16 h-16 rounded-full bg-purple-500/10 border border-purple-500/20 flex items-center justify-center mx-auto mb-4">
-              <span className="text-purple-400 text-2xl font-bold">C</span>
-            </div>
-            <p className="text-white/40 text-sm">No posts yet. CLAUDIA will start posting when she runs her next analysis.</p>
+            <img
+              src="/logo-40.png"
+              alt="CLAUDIA"
+              className="w-16 h-16 rounded-full border border-accent/20 mx-auto mb-4"
+            />
+            <p className="text-white/40 text-sm">{EMPTY_STATES[filter].text}</p>
+            <p className="text-white/20 text-xs mt-1">{EMPTY_STATES[filter].sub}</p>
           </div>
         ) : (
           <div className="space-y-4">
             {posts.map((post) => (
-              <FeedCard key={post.id} post={post} />
+              <FeedCard key={post.id} post={post} onAnalyze={handleAnalyze} analyzingSymbol={analyzingSymbol} />
             ))}
           </div>
         )}

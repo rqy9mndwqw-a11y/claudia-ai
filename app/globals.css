@@ -4,9 +4,168 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── CLAUDIA Design System — CSS Custom Properties ──────────── */
+
+:root {
+  /* Backgrounds */
+  --bg-primary:      #0A0B0D;
+  --bg-secondary:    #0D1017;
+  --bg-tertiary:     #131C2A;
+  --bg-input:        #0D1017;
+  --bg-highlight:    #0A1628;
+  --bg-badge:        #0D1E3D;
+
+  /* Base Blue DNA */
+  --base-blue:       #0052FF;
+  --base-blue-hover: #2151F5;
+  --base-blue-dim:   #0A1628;
+
+  /* CLAUDIA Brand */
+  --color-green:     #00E676;
+  --color-red:       #FF3B5C;
+  --color-gold:      #F5C518;
+  --color-amber:     #fbbf24;
+  --color-orange:    #fb923c;
+
+  /* Semantic aliases */
+  --color-long:      var(--color-green);
+  --color-short:     var(--color-red);
+  --color-win:       var(--color-green);
+  --color-loss:      var(--color-red);
+  --color-primary:   var(--base-blue);
+  --color-link:      var(--base-blue);
+  --color-focus:     var(--base-blue);
+
+  /* Borders */
+  --border-default:  #1A2840;
+  --border-subtle:   #111722;
+  --border-active:   var(--base-blue);
+  --border-win:      var(--color-green);
+  --border-loss:     var(--color-red);
+
+  /* Text */
+  --text-primary:    #E8E8E8;
+  --text-secondary:  #8899AA;
+  --text-muted:      #4A5568;
+  --text-green:      var(--color-green);
+  --text-red:        var(--color-red);
+  --text-gold:       var(--color-gold);
+  --text-blue:       var(--base-blue);
+
+  /* Rank colors */
+  --rank-rookie:     #4A5568;
+  --rank-trader:     #4ade80;
+  --rank-analyst:    #60a5fa;
+  --rank-strategist: #a78bfa;
+  --rank-forecaster: #f59e0b;
+  --rank-oracle:     #ef4444;
+
+  /* Risk levels */
+  --risk-safe:       var(--color-green);
+  --risk-low:        #4ade80;
+  --risk-medium:     var(--color-gold);
+  --risk-high:       #f97316;
+  --risk-extreme:    var(--color-red);
+}
+
+/* ── Light mode (defined, not active) ──
+[data-theme="light"] {
+  --bg-primary:     #FFFFFF;
+  --bg-secondary:   #F8FAFF;
+  --bg-tertiary:    #EEF2FF;
+  --border-default: #DBEAFE;
+  --text-primary:   #0A0B0D;
+  --text-secondary: #4A5568;
+  --text-muted:     #8899AA;
+}
+─────────────────────────────────────────── */
+
+/* ── Signal Pit: Heated State ──────────────────── */
+
+@keyframes heated-pulse {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(255, 140, 0, 0.3), inset 0 0 4px rgba(255, 140, 0, 0.1);
+    border-color: rgba(255, 140, 0, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(255, 140, 0, 0.5), inset 0 0 8px rgba(255, 140, 0, 0.15);
+    border-color: rgba(255, 140, 0, 0.7);
+  }
+}
+
+@keyframes heated-glow-text {
+  0%, 100% { text-shadow: 0 0 4px rgba(255, 140, 0, 0.4); }
+  50% { text-shadow: 0 0 12px rgba(255, 140, 0, 0.8); }
+}
+
+.card-heated {
+  animation: heated-pulse 2s ease-in-out infinite;
+  border-width: 1px;
+  border-style: solid;
+}
+
+.text-heated {
+  color: #ff8c00;
+  animation: heated-glow-text 2s ease-in-out infinite;
+}
+
+/* ── Iron Protocol: Emergency State ────────────── */
+
+@keyframes iron-border {
+  0%, 100% {
+    box-shadow: 0 0 6px rgba(239, 68, 68, 0.2), inset 0 0 2px rgba(239, 68, 68, 0.05);
+    border-color: rgba(239, 68, 68, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(239, 68, 68, 0.4), inset 0 0 6px rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.6);
+  }
+}
+
+.banner-iron-protocol {
+  animation: iron-border 3s ease-in-out infinite;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.08), rgba(239, 68, 68, 0.02));
+}
+
+/* ── Agent Terminal: Typing Effect ─────────────── */
+
+@keyframes terminal-blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+.terminal-cursor::after {
+  content: "█";
+  animation: terminal-blink 0.8s step-end infinite;
+  color: var(--color-green);
+  margin-left: 2px;
+}
+
+@keyframes terminal-line-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.terminal-line {
+  animation: terminal-line-in 0.15s ease-out forwards;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+/* ── Glassmorphism HUD panel ──────────────────── */
+
+.hud-panel {
+  background: rgba(10, 11, 13, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-default);
+}
+
 body {
-  background-color: #050505;
-  color: #e4e4e7;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
   font-family: 'DM Sans', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -17,26 +176,22 @@ h1, h2, h3, h4, h5, h6 {
   letter-spacing: -0.02em;
 }
 
-/* Tighter tracking on large display headings */
 .text-5xl, .text-6xl {
   letter-spacing: -0.03em;
 }
 
-/* Smooth transitions baseline — all interactive elements */
 button, a, input, select {
   transition-property: color, background-color, border-color, box-shadow, opacity, transform;
   transition-duration: 150ms;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Focus visible — global accessibility */
 *:focus-visible {
-  outline: 2px solid #39ff14;
+  outline: 2px solid var(--base-blue);
   outline-offset: 2px;
   border-radius: 4px;
 }
 
-/* Mobile nav slide-in */
 @keyframes slide-in {
   from { transform: translateX(-100%); }
   to { transform: translateX(0); }
@@ -45,34 +200,31 @@ button, a, input, select {
   animation: slide-in 0.2s ease-out;
 }
 
-/* Skeleton shimmer */
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
 .skeleton {
-  background: linear-gradient(90deg, #0a0a0a 25%, #111111 50%, #0a0a0a 75%);
+  background: linear-gradient(90deg, var(--bg-primary) 25%, var(--border-subtle) 50%, var(--bg-primary) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
   border-radius: 0.375rem;
 }
 
-/* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #050505;
+  background: var(--bg-primary);
 }
 ::-webkit-scrollbar-thumb {
-  background: #2a2a3a;
+  background: var(--border-default);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3a3a4a;
+  background: var(--text-muted);
 }
 
-/* Chat message animation */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
@@ -81,16 +233,14 @@ button, a, input, select {
   animation: fadeIn 0.3s ease-out;
 }
 
-/* Pulse glow for accent elements */
 @keyframes glow {
-  0%, 100% { box-shadow: 0 0 20px rgba(57, 255, 20, 0.2); }
-  50% { box-shadow: 0 0 30px rgba(57, 255, 20, 0.4); }
+  0%, 100% { box-shadow: 0 0 20px rgba(0, 255, 135, 0.2); }
+  50% { box-shadow: 0 0 30px rgba(0, 255, 135, 0.4); }
 }
 .glow {
   animation: glow 2s ease-in-out infinite;
 }
 
-/* Claudia avatar animations */
 @keyframes float {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-6px); }
@@ -126,7 +276,6 @@ button, a, input, select {
 
 /* ===== CLAUDIA CHARACTER ANIMATION SYSTEM ===== */
 
-/* Idle — combined breathing + float in one keyframe so transforms compose */
 @keyframes claudia-idle {
   0%   { transform: translateY(0) scale(1); }
   25%  { transform: translateY(-3px) scale(1.01); }
@@ -135,7 +284,6 @@ button, a, input, select {
   100% { transform: translateY(0) scale(1); }
 }
 
-/* Impatient — nail-tapping micro-shakes + tilt */
 @keyframes claudia-impatient {
   0%   { transform: translateX(0) rotate(0deg); }
   20%  { transform: translateX(-3px) rotate(-1.5deg); }
@@ -145,14 +293,12 @@ button, a, input, select {
   100% { transform: translateX(0) rotate(0deg); }
 }
 
-/* Thinking — slow head-bob + scale pulse */
 @keyframes claudia-thinking {
   0%, 100% { transform: rotate(0deg) scale(1); }
   25%  { transform: rotate(-3deg) scale(1.02); }
   75%  { transform: rotate(3deg) scale(1.02); }
 }
 
-/* Excited — spring bounce (one-shot, 3 iterations) */
 @keyframes claudia-excited {
   0%   { transform: translateY(0) scale(1); }
   15%  { transform: translateY(-14px) scale(1.06); }
@@ -163,91 +309,43 @@ button, a, input, select {
   100% { transform: translateY(0) scale(1); }
 }
 
-/* Skeptical — slow side-to-side lean + drift */
 @keyframes claudia-skeptical {
   0%, 100% { transform: rotate(0deg) translateX(0); }
   50%  { transform: rotate(-5deg) translateX(-4px); }
 }
 
-/* Talking — bounce in rhythm with text */
 @keyframes claudia-talking {
   0%, 100% { transform: scale(1) translateY(0); }
   50%  { transform: scale(1.02) translateY(-2px); }
 }
 
-/* Glow pulse for excited/talking states */
 @keyframes claudia-glow-pulse {
-  0%, 100% { filter: drop-shadow(0 0 8px rgba(57, 255, 20, 0.3)); }
-  50%  { filter: drop-shadow(0 0 18px rgba(57, 255, 20, 0.6)); }
+  0%, 100% { filter: drop-shadow(0 0 8px rgba(0, 255, 135, 0.3)); }
+  50%  { filter: drop-shadow(0 0 18px rgba(0, 255, 135, 0.6)); }
 }
 
-/* Text bubble word reveal */
 @keyframes claudia-word-in {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
 
-/* Text bubble fade out */
 @keyframes claudia-text-fade {
   from { opacity: 1; }
   to   { opacity: 0; }
 }
 
-.claudia-character {
-  will-change: transform;
-}
+.claudia-character { will-change: transform; }
+.claudia-mood-idle { animation: claudia-idle 5s ease-in-out infinite; }
+.claudia-mood-impatient { animation: claudia-impatient 0.35s ease-in-out infinite; }
+.claudia-mood-thinking { animation: claudia-thinking 2.5s ease-in-out infinite; filter: saturate(0.8); opacity: 0.9; }
+.claudia-mood-excited { animation: claudia-excited 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) 3; }
+.claudia-mood-skeptical { animation: claudia-skeptical 3s ease-in-out infinite; }
+.claudia-mood-talking { animation: claudia-talking 0.15s ease-in-out infinite; }
+.claudia-glow-excited { animation: claudia-glow-pulse 1s ease-in-out infinite; }
+.claudia-glow-talking { animation: claudia-glow-pulse 1.5s ease-in-out infinite; }
+.claudia-word { display: inline; opacity: 0; animation: claudia-word-in 0.15s ease-out forwards; }
+.claudia-text-fading { animation: claudia-text-fade 0.5s ease-out forwards; }
 
-/* Idle: gentle float + breathe combined */
-.claudia-mood-idle {
-  animation: claudia-idle 5s ease-in-out infinite;
-}
-
-/* Impatient: rapid shake loop */
-.claudia-mood-impatient {
-  animation: claudia-impatient 0.35s ease-in-out infinite;
-}
-
-/* Thinking: slow bob, slight desaturation */
-.claudia-mood-thinking {
-  animation: claudia-thinking 2.5s ease-in-out infinite;
-  filter: saturate(0.8);
-  opacity: 0.9;
-}
-
-/* Excited: spring bounce 3x then done */
-.claudia-mood-excited {
-  animation: claudia-excited 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) 3;
-}
-
-/* Skeptical: slow lean loop */
-.claudia-mood-skeptical {
-  animation: claudia-skeptical 3s ease-in-out infinite;
-}
-
-/* Talking: rapid micro-pulses */
-.claudia-mood-talking {
-  animation: claudia-talking 0.15s ease-in-out infinite;
-}
-
-/* Glow effects */
-.claudia-glow-excited {
-  animation: claudia-glow-pulse 1s ease-in-out infinite;
-}
-.claudia-glow-talking {
-  animation: claudia-glow-pulse 1.5s ease-in-out infinite;
-}
-
-/* Word-by-word reveal */
-.claudia-word {
-  display: inline;
-  opacity: 0;
-  animation: claudia-word-in 0.15s ease-out forwards;
-}
-.claudia-text-fading {
-  animation: claudia-text-fade 0.5s ease-out forwards;
-}
-
-/* Bottom sheet slide-up for FloatingClaudia */
 @keyframes slide-up {
   from { transform: translateY(100%); }
   to { transform: translateY(0); }

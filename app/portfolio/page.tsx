@@ -10,6 +10,8 @@ import { useAccount } from "wagmi";
 import type { PortfolioData, TokenBalance, NFTItem, DeFiPosition, Transaction } from "@/lib/portfolio/fetch-portfolio";
 import type { WatchedWallet } from "@/lib/portfolio/multiple-wallets";
 import { formatChainName } from "@/lib/portfolio/fetch-portfolio";
+import PortfolioRiskBadge from "@/components/portfolio/PortfolioRiskBadge";
+import PortfolioTradeHistory from "@/components/portfolio/PortfolioTradeHistory";
 
 type PortfolioTab = "overview" | "tokens" | "defi" | "nfts" | "history";
 
@@ -342,7 +344,18 @@ function PortfolioContent() {
             </button>
           </div>
 
-          {/* Chain badges */}
+          {/* Risk badge + chain badges */}
+          <div className="mb-3">
+            <PortfolioRiskBadge
+              tokens={portfolio.tokens.map((t) => ({
+                symbol: t.symbol,
+                chain: t.chain,
+                balanceUsd: t.balanceUsd,
+              }))}
+              loading={loading}
+            />
+          </div>
+
           <div className="flex gap-2 flex-wrap">
             {portfolio.chains.map((chain) => (
               <span
@@ -414,6 +427,9 @@ function PortfolioContent() {
           </button>
         </div>
       ) : null}
+
+      {/* Recent on-chain trades — renders nothing when the user has none */}
+      <PortfolioTradeHistory sessionToken={sessionToken} />
 
       {/* Tabs */}
       {portfolio && (

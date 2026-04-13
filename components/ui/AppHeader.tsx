@@ -2,7 +2,10 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import WalletConnect from "../WalletConnect";
+import BuiltOnBase from "../BuiltOnBase";
+import TierWidget from "../TierWidget";
 import { useBurnedAmount } from "@/hooks/useBurnedAmount";
 import { useSessionToken } from "@/hooks/useSessionToken";
 
@@ -17,19 +20,31 @@ const ECOSYSTEM_LINKS = [
     href: "https://dexscreener.com/base/0xe6be7cc04136ddada378175311fbd6424409f997",
   },
   {
-    label: "X / TWITTER",
-    href: "https://x.com/0xCLAUDIA_wtf",
+    label: "AERODROME",
+    href: "https://aerodrome.finance/swap?inputCurrency=ETH&outputCurrency=0x98eBd4Ac5d4f7022140c51e03CAc39d9F94CDE9B",
   },
   {
-    label: "DOCS",
-    href: "https://claudia.wtf",
+    label: "UNISWAP",
+    href: "https://app.uniswap.org/explore/tokens/base/0x98ebd4ac5d4f7022140c51e03cac39d9f94cde9b",
+  },
+  {
+    label: "X / TWITTER",
+    href: "https://x.com/Claudiadev_wtf",
   },
 ];
 
 export default function AppHeader() {
+  const pathname = usePathname();
   const { burned } = useBurnedAmount();
   const { sessionToken } = useSessionToken();
   const [streak, setStreak] = useState(0);
+
+  // Breadcrumb from pathname
+  const breadcrumb = pathname
+    .split("/")
+    .filter(Boolean)
+    .map((s) => s.replace(/[[\]]/g, "").toUpperCase())
+    .join(" // ") || "DASHBOARD";
 
   useEffect(() => {
     if (!sessionToken) return;
@@ -43,19 +58,12 @@ export default function AppHeader() {
 
   return (
     <header className="sticky top-0 z-50 flex items-center justify-between px-4 py-2 border-b border-white/5 bg-bg/80 backdrop-blur-md gap-3">
-      {/* Left — ecosystem links */}
-      <div className="hidden md:flex items-center gap-1">
-        {ECOSYSTEM_LINKS.map((link) => (
-          <a
-            key={link.label}
-            href={link.href}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[10px] font-mono text-zinc-600 hover:text-zinc-300 px-2 py-1 rounded transition-colors"
-          >
-            [ {link.label} ]
-          </a>
-        ))}
+      {/* Left — breadcrumb + Base badge */}
+      <div className="hidden md:flex items-center gap-3">
+        <BuiltOnBase variant="inline" />
+        <span className="text-[10px] font-mono tracking-widest" style={{ color: "var(--text-muted)" }}>
+          APP // {breadcrumb}
+        </span>
       </div>
 
       {/* Center — golden burn tracker */}
@@ -71,8 +79,12 @@ export default function AppHeader() {
         )}
       </div>
 
-      {/* Right — streak + wallet */}
+      {/* Right — status LED + streak + wallet */}
       <div className="flex items-center gap-2.5">
+        <span className="hidden lg:flex items-center gap-1.5 text-[9px] font-mono" style={{ color: "var(--text-muted)" }}>
+          <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "var(--color-green)" }} />
+          ONLINE
+        </span>
         {streak > 0 && (
           <span
             className="hidden lg:flex items-center gap-1 text-[10px] font-mono text-orange-400 bg-orange-400/10 px-2 py-1 rounded-lg"
@@ -91,6 +103,7 @@ export default function AppHeader() {
             <path d="M20 21a8 8 0 0 0-16 0" />
           </svg>
         </Link>
+        <TierWidget />
         <WalletConnect />
       </div>
     </header>

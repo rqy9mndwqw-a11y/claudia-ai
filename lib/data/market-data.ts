@@ -192,6 +192,8 @@ export function extractTickers(message: string): string[] {
     }
   }
 
-  // Final fallback
-  return found.length > 0 ? found : ["BTC/USD"];
+  // No fallback — callers that require a default must provide one explicitly.
+  // Returning ["BTC/USD"] here caused agents to analyze BTC as if it were the
+  // user's token (see lib/data/token-router.ts).
+  return found;
 }
